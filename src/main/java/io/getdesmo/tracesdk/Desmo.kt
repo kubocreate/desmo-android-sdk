@@ -52,6 +52,10 @@ object Desmo {
         environment: DesmoEnvironment
     ) {
         try {
+            if (context != null && !hasRequiredPermissions(context)) {
+                println("[DesmoSDK] WARNING: Required permissions are missing: ${getMissingPermissions(context)}")
+            }
+
             val config = DesmoConfig(
                 apiKey = apiKey,
                 environment = environment
@@ -64,6 +68,41 @@ object Desmo {
         } catch (t: Throwable) {
             // Mirror the iOS behavior of logging on failure.
             println("[DesmoSDK] Setup failed: $t")
+        }
+    }
+
+    /**
+     * Returns the array of Android runtime permissions required by the SDK.
+     *
+     * Currently: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION
+     */
+    @JvmStatic
+    fun getRequiredPermissions(): Array<String> {
+        return arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+    }
+
+    /**
+     * Checks if the host app has granted all permissions required by the SDK.
+     */
+    @JvmStatic
+    fun hasRequiredPermissions(context: Context): Boolean {
+        return getMissingPermissions(context).isEmpty()
+    }
+
+    /**
+     * Returns a list of permissions that are currently denied but required.
+     */
+    @JvmStatic
+    fun getMissingPermissions(context: Context): List<String> {
+        val required = getRequiredPermissions()
+        return required.filter { permission ->
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                permission
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
 }
