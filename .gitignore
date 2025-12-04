@@ -1,0 +1,19 @@
+# Build files
+/build
+.gradle
+
+# IDE files
+.idea
+*.iml
+.DS_Store
+
+# Local configuration (secrets)
+local.properties
+
+# Signing keys (VERY IMPORTANT TO IGNORE)
+*.gpg
+*.asc
+secring.gpg
+pubring.gpg
+
+

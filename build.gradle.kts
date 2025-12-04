@@ -1,7 +1,9 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.android.library") version "8.2.0"
+    id("org.jetbrains.kotlin.android") version "1.9.20"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
+    // id("maven-publish") // Not needed for JitPack / normal AAR builds
+    // id("signing")       // Only needed when publishing to Maven Central
 }
 
 android {
@@ -35,6 +37,89 @@ android {
         jvmTarget = "17"
     }
 }
+
+// --- Maven Central publishing + signing (disabled for now) -------------------
+// The following block was used for publishing to Maven Central directly.
+// Since we're using JitPack / simple AAR builds for now, it is commented out
+// to keep things simpler and avoid GPG / Sonatype configuration.
+//
+// afterEvaluate {
+//     publishing {
+//         publications {
+//             create<MavenPublication>("release") {
+//                 from(components["release"])
+//                 groupId = "io.getdesmo"
+//                 artifactId = "desmo-android-sdk"
+//                 version = "0.1.2"
+//
+//                 pom {
+//                     name.set("Desmo Android SDK")
+//                     description.set("The Official Android SDK for Desmo, the delivery intelligence platform.")
+//                     url.set("https://getdesmo.io")
+//
+//                     licenses {
+//                         license {
+//                             name.set("MIT License")
+//                             url.set("https://opensource.org/licenses/MIT")
+//                         }
+//                     }
+//
+//                     developers {
+//                         developer {
+//                             id.set("desmo")
+//                             name.set("Desmo Engineering")
+//                             email.set("engineering@getdesmo.io")
+//                         }
+//                     }
+//
+//                     scm {
+//                         connection.set("scm:git:git://github.com/getdesmo/desmo-android-sdk.git")
+//                         developerConnection.set("scm:git:ssh://github.com/getdesmo/desmo-android-sdk.git")
+//                         url.set("https://github.com/getdesmo/desmo-android-sdk")
+//                     }
+//                 }
+//             }
+//         }
+//
+//         repositories {
+//             maven {
+//                 name = "sonatype"
+//                 val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+//                 val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+//                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+//
+//                 credentials {
+//                     username = findProperty("ossrhUsername") as String?
+//                     password = findProperty("ossrhPassword") as String?
+//                 }
+//             }
+//         }
+//     }
+// }
+//
+// signing {
+//     val localProperties = Properties()
+//     val localPropertiesFile = rootProject.file("local.properties")
+//     if (localPropertiesFile.exists()) {
+//         localProperties.load(FileInputStream(localPropertiesFile))
+//     }
+//
+//     fun getProp(name: String): String? {
+//         return project.findProperty(name) as? String ?: localProperties.getProperty(name)
+//     }
+//
+//     val password = getProp("signing.password")
+//     val secretKeyRingFile = getProp("signing.secretKeyRingFile")
+//
+//     if (password != null && secretKeyRingFile != null) {
+//         val keyFile = file(secretKeyRingFile)
+//         if (keyFile.exists()) {
+//             val key = keyFile.readText()
+//             useInMemoryPgpKeys(key, password)
+//             sign(publishing.publications)
+//         }
+//     }
+// }
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
