@@ -191,7 +191,7 @@ internal class HttpTelemetryProvider(
      * Returns which sensors are available on this device.
      * Called before session start to include in session metadata.
      */
-    fun getSensorAvailability(): SensorAvailability {
+    override fun getSensorAvailability(): SensorAvailability {
         return SensorAvailability(
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null,
             gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null,
@@ -206,7 +206,7 @@ internal class HttpTelemetryProvider(
      * Returns the last known GPS position as an anchor point.
      * Called before session start to capture the starting location.
      */
-    fun getLastKnownPosition(): PositionPayload? {
+    override fun getLastKnownPosition(): PositionPayload? {
         val lm = locationManager ?: return null
         return try {
             val location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
