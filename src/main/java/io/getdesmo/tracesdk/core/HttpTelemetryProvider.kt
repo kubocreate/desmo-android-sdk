@@ -122,6 +122,14 @@ internal class HttpTelemetryProvider(
                     hasAttitude = true
                     appendImuSample(tsSeconds)
                 }
+
+                Sensor.TYPE_PRESSURE -> {
+                    // Capture barometer pressure in hPa
+                    latestBarometer = BarometerPayload(
+                        pressureHpa = event.values[0].toDouble(),
+                        relativeAltitudeM = null  // Android doesn't provide relative altitude directly
+                    )
+                }
             }
         }
 
@@ -179,6 +187,49 @@ internal class HttpTelemetryProvider(
         }
     }
 
+    /**
+     * Returns which sensors are available on this device.
+     * Called before session start to include in session metadata.
+     */
+    fun getSensorAvailability(): SensorAvailability {
+        return SensorAvailability(
+            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null,
+            gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null,
+            gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY) != null,
+            rotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null,
+            barometer = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null,
+            gps = locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+        )
+    }
+
+    /**
+     * Returns the last known GPS position as an anchor point.
+     * Called before session start to capture the starting location.
+     */
+    fun getLastKnownPosition(): PositionPayload? {
+        val lm = locationManager ?: return null
+        return try {
+            val location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            location?.let {
+                PositionPayload(
+                    lat = it.latitude,
+                    lng = it.longitude,
+                    accuracyM = if (it.hasAccuracy()) it.accuracy.toDouble() else null,
+                    altitudeM = if (it.hasAltitude()) it.altitude else null,
+                    speedMps = if (it.hasSpeed()) it.speed.toDouble() else null,
+                    bearingDeg = if (it.hasBearing()) it.bearing.toDouble() else null,
+                    source = it.provider
+                )
+            }
+        } catch (e: SecurityException) {
+            if (loggingEnabled) {
+                println("[DesmoSDK] Location permission not granted, cannot get anchor position")
+            }
+            null
+        }
+    }
+
     // --- Sensors ---
 
     private fun startSensors() {
@@ -223,18 +274,55 @@ internal class HttpTelemetryProvider(
 
     private fun startLocationUpdates() {
         val lm = locationManager ?: return
+        
         try {
-            lm.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                5_000L,
-                0f,
-                locationListener,
-                Looper.getMainLooper()
-            )
-
-            if (loggingEnabled) {
-                println("[DesmoSDK] Telemetry location updates started")
+            // 1. Get immediate position from last known location
+            val lastKnown = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            
+            if (lastKnown != null) {
+                latestPosition = PositionPayload(
+                    lat = lastKnown.latitude,
+                    lng = lastKnown.longitude,
+                    accuracyM = if (lastKnown.hasAccuracy()) lastKnown.accuracy.toDouble() else null,
+                    altitudeM = if (lastKnown.hasAltitude()) lastKnown.altitude else null,
+                    speedMps = if (lastKnown.hasSpeed()) lastKnown.speed.toDouble() else null,
+                    bearingDeg = if (lastKnown.hasBearing()) lastKnown.bearing.toDouble() else null,
+                    source = lastKnown.provider
+                )
+                if (loggingEnabled) {
+                    println("[DesmoSDK] Initial position from last known: ${lastKnown.latitude}, ${lastKnown.longitude}")
+                }
             }
+
+            // 2. Request GPS updates (most accurate)
+            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                lm.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    2_000L,
+                    0f,
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+                if (loggingEnabled) {
+                    println("[DesmoSDK] GPS location updates started")
+                }
+            }
+
+            // 3. Also request Network updates as fallback (faster but less accurate)
+            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                lm.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    2_000L,
+                    0f,
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+                if (loggingEnabled) {
+                    println("[DesmoSDK] Network location updates started (fallback)")
+                }
+            }
+
         } catch (se: SecurityException) {
             if (loggingEnabled) {
                 println("[DesmoSDK] Location permission not granted, skipping location telemetry")

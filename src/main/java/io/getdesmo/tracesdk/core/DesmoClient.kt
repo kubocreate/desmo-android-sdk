@@ -79,6 +79,25 @@ class DesmoClient(
         // 2. Transition state: idle -> starting
         state = SessionState.STARTING
 
+        // Capture anchor position if not provided
+        val anchorPosition = if (startLat == null || startLon == null) {
+            telemetry.getLastKnownPosition()
+        } else {
+            null
+        }
+        val finalStartLat = startLat ?: anchorPosition?.lat
+        val finalStartLon = startLon ?: anchorPosition?.lng
+
+        if (config.loggingEnabled && anchorPosition != null) {
+            println("[DesmoSDK] Anchor position captured: ${anchorPosition.lat}, ${anchorPosition.lng}")
+        }
+
+        // Get sensor availability
+        val sensorAvailability = telemetry.getSensorAvailability()
+        if (config.loggingEnabled) {
+            println("[DesmoSDK] Sensor availability: accel=${sensorAvailability.accelerometer}, gyro=${sensorAvailability.gyroscope}, baro=${sensorAvailability.barometer}, gps=${sensorAvailability.gps}")
+        }
+
         val requestBody = StartSessionRequest(
             deliveryId = deliveryId,
             address = address,
@@ -87,8 +106,9 @@ class DesmoClient(
             deviceModel = deviceModel,
             osVersion = osVersion,
             appVersion = appVersion,
-            startLat = startLat,
-            startLon = startLon
+            startLat = finalStartLat,
+            startLon = finalStartLon,
+            sensorAvailability = sensorAvailability
         )
 
         try {
@@ -250,7 +270,8 @@ class DesmoClient(
         val osVersion: String? = null,
         val appVersion: String? = null,
         val startLat: Double? = null,
-        val startLon: Double? = null
+        val startLon: Double? = null,
+        val sensorAvailability: SensorAvailability? = null
     )
 
     @Serializable

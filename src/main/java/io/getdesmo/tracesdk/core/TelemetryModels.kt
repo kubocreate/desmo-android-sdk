@@ -58,4 +58,18 @@ data class TelemetrySample(
     val context: ContextPayload? = null
 )
 
+/**
+ * Reports which sensors are available on the device.
+ * Sent with session start so backend knows what data to expect.
+ */
+@Serializable
+data class SensorAvailability(
+    val accelerometer: Boolean = false,
+    val gyroscope: Boolean = false,
+    val gravity: Boolean = false,
+    val rotationVector: Boolean = false,
+    val barometer: Boolean = false,
+    val gps: Boolean = false
+)
+
 

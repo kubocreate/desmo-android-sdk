@@ -18,6 +18,16 @@ class NoopTelemetryProvider : TelemetryProvider {
     override suspend fun flush() {
         // No-op
     }
+
+    override fun getSensorAvailability(): SensorAvailability {
+        // No sensors available in noop mode
+        return SensorAvailability()
+    }
+
+    override fun getLastKnownPosition(): PositionPayload? {
+        // No position available in noop mode
+        return null
+    }
 }
 
 
