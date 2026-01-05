@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.telemetry
 
 import kotlinx.serialization.Serializable
 
@@ -71,5 +71,4 @@ data class SensorAvailability(
     val barometer: Boolean = false,
     val gps: Boolean = false
 )
-
 

@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.http
+package io.getdesmo.tracesdk.network
 
 import io.getdesmo.tracesdk.config.DesmoConfig
 import kotlinx.coroutines.Dispatchers

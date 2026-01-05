@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.config
+package io.getdesmo.tracesdk.internal
 
 import android.Manifest
 import android.content.Context
@@ -65,5 +65,4 @@ class DesmoRequirements : RequirementsChecker {
         }
     }
 }
-
 

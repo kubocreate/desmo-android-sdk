@@ -1,6 +1,6 @@
 package io.getdesmo.tracesdk.config
 
-import io.getdesmo.tracesdk.errors.DesmoClientError
+import io.getdesmo.tracesdk.api.DesmoClientError
 
 /**
  * Configuration for the Desmo SDK.
@@ -23,5 +23,3 @@ data class DesmoConfig(
         }
     }
 }
-
-

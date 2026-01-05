@@ -2,6 +2,7 @@ plugins {
     id("com.android.library") version "8.2.0"
     id("org.jetbrains.kotlin.android") version "1.9.20"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
     // id("maven-publish") // Not needed for JitPack / normal AAR builds
     // id("signing")       // Only needed when publishing to Maven Central
 }
@@ -35,6 +36,18 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+// ktlint configuration
+ktlint {
+    version.set("1.1.1")
+    android.set(true)
+    outputToConsole.set(true)
+    ignoreFailures.set(false)  // Fail build on lint errors
+    
+    filter {
+        exclude("**/generated/**")
     }
 }
 

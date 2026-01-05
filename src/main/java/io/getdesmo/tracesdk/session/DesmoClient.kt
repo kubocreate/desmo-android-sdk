@@ -1,12 +1,17 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.session
 
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import io.getdesmo.tracesdk.config.DesmoConfig
-import io.getdesmo.tracesdk.errors.DesmoClientError
-import io.getdesmo.tracesdk.http.HttpClient
-import io.getdesmo.tracesdk.http.HttpError
+import io.getdesmo.tracesdk.api.DesmoClientError
+import io.getdesmo.tracesdk.api.Session
+import io.getdesmo.tracesdk.network.HttpClient
+import io.getdesmo.tracesdk.network.HttpError
+import io.getdesmo.tracesdk.telemetry.TelemetryProvider
+import io.getdesmo.tracesdk.telemetry.HttpTelemetryProvider
+import io.getdesmo.tracesdk.telemetry.NoopTelemetryProvider
+import io.getdesmo.tracesdk.telemetry.SensorAvailability
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -279,5 +284,4 @@ class DesmoClient(
         val sessionId: String
     )
 }
-
 

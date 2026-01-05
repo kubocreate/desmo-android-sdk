@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.telemetry
 
 /**
  * Telemetry provider that does nothing.
@@ -29,5 +29,4 @@ class NoopTelemetryProvider : TelemetryProvider {
         return null
     }
 }
-
 

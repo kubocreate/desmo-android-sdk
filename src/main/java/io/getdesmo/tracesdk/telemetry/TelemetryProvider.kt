@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.telemetry
 
 /**
  * Abstraction for telemetry collection.
@@ -20,5 +20,4 @@ interface TelemetryProvider {
      */
     fun getLastKnownPosition(): PositionPayload?
 }
-
 

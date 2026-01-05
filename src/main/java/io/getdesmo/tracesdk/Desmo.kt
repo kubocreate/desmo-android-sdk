@@ -3,7 +3,7 @@ package io.getdesmo.tracesdk
 import android.content.Context
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
-import io.getdesmo.tracesdk.core.DesmoClient
+import io.getdesmo.tracesdk.session.DesmoClient
 
 /**
  * Main entry point for the Desmo Android SDK.
@@ -106,5 +106,3 @@ object Desmo {
         }
     }
 }
-
-

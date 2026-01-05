@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.telemetry
 
 import android.content.Context
 import android.content.Intent
@@ -16,8 +16,8 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Looper
 import android.os.PowerManager
-import io.getdesmo.tracesdk.http.HttpClient
-import io.getdesmo.tracesdk.http.HttpError
+import io.getdesmo.tracesdk.network.HttpClient
+import io.getdesmo.tracesdk.network.HttpError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -484,5 +484,4 @@ internal class HttpTelemetryProvider(
         }
     }
 }
-
 

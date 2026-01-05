@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.api
 
 import kotlinx.serialization.Serializable
 
@@ -7,9 +7,4 @@ import kotlinx.serialization.Serializable
  *
  * Mirrors the Swift `Session` struct.
  */
-@Serializable
-data class Session(
-    val sessionId: String,
-    val status: String
-)
-
+@Serializable data class Session(val sessionId: String, val status: String)
