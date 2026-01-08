@@ -16,6 +16,7 @@ import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import io.getdesmo.tracesdk.network.HttpClient
 import io.getdesmo.tracesdk.network.RequestError
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,10 @@ internal class HttpTelemetryProvider(
     private val httpClient: HttpClient,
     private val loggingEnabled: Boolean
 ) : TelemetryProvider {
+
+    private companion object {
+        private const val TAG = "DesmoSDK"
+    }
 
     private val appContext = context.applicationContext
 
@@ -224,7 +229,7 @@ internal class HttpTelemetryProvider(
             }
         } catch (e: SecurityException) {
             if (loggingEnabled) {
-                println("[DesmoSDK] Location permission not granted, cannot get anchor position")
+                Log.w(TAG, "Location permission not granted, cannot get anchor position")
             }
             null
         }
@@ -259,14 +264,14 @@ internal class HttpTelemetryProvider(
         }
 
         if (loggingEnabled) {
-            println("[DesmoSDK] Telemetry sensors started (accel/gyro/gravity/rotation/pressure)")
+            Log.d(TAG, "Telemetry sensors started (accel/gyro/gravity/rotation/pressure)")
         }
     }
 
     private fun stopSensors() {
         sensorManager.unregisterListener(imuListener)
         if (loggingEnabled) {
-            println("[DesmoSDK] Telemetry sensors stopped")
+            Log.d(TAG, "Telemetry sensors stopped")
         }
     }
 
@@ -291,7 +296,7 @@ internal class HttpTelemetryProvider(
                     source = lastKnown.provider
                 )
                 if (loggingEnabled) {
-                    println("[DesmoSDK] Initial position from last known: ${lastKnown.latitude}, ${lastKnown.longitude}")
+                    Log.d(TAG, "Initial position from last known: ${lastKnown.latitude}, ${lastKnown.longitude}")
                 }
             }
 
@@ -305,7 +310,7 @@ internal class HttpTelemetryProvider(
                     Looper.getMainLooper()
                 )
                 if (loggingEnabled) {
-                    println("[DesmoSDK] GPS location updates started")
+                    Log.d(TAG, "GPS location updates started")
                 }
             }
 
@@ -319,13 +324,13 @@ internal class HttpTelemetryProvider(
                     Looper.getMainLooper()
                 )
                 if (loggingEnabled) {
-                    println("[DesmoSDK] Network location updates started (fallback)")
+                    Log.d(TAG, "Network location updates started (fallback)")
                 }
             }
 
         } catch (se: SecurityException) {
             if (loggingEnabled) {
-                println("[DesmoSDK] Location permission not granted, skipping location telemetry")
+                Log.w(TAG, "Location permission not granted, skipping location telemetry")
             }
         }
     }
@@ -333,7 +338,7 @@ internal class HttpTelemetryProvider(
     private fun stopLocationUpdates() {
         locationManager?.removeUpdates(locationListener)
         if (loggingEnabled) {
-            println("[DesmoSDK] Telemetry location updates stopped")
+            Log.d(TAG, "Telemetry location updates stopped")
         }
     }
 
@@ -467,21 +472,20 @@ internal class HttpTelemetryProvider(
 
         try {
             if (loggingEnabled) {
-                println("[DesmoSDK] Sending telemetry batch: ${batch.size} samples")
+                Log.d(TAG, "Sending telemetry batch: ${batch.size} samples")
             }
             httpClient.post(path = "/v1/telemetry", jsonBody = jsonBody)
             if (loggingEnabled) {
-                println("[DesmoSDK] Telemetry batch success")
+                Log.d(TAG, "Telemetry batch success")
             }
         } catch (e: RequestError) {
             if (loggingEnabled) {
-                println("[DesmoSDK] Telemetry batch failed: $e")
+                Log.e(TAG, "Telemetry batch failed: $e")
             }
         } catch (t: Throwable) {
             if (loggingEnabled) {
-                println("[DesmoSDK] Telemetry batch failed: $t")
+                Log.e(TAG, "Telemetry batch failed: $t")
             }
         }
     }
 }
-

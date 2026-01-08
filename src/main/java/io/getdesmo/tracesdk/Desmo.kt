@@ -1,6 +1,7 @@
 package io.getdesmo.tracesdk
 
 import android.content.Context
+import android.util.Log
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
 import io.getdesmo.tracesdk.session.DesmoClient
@@ -13,6 +14,8 @@ import io.getdesmo.tracesdk.session.DesmoClient
  * - `Desmo.setup()` ->  `Desmo.setup()`
  */
 object Desmo {
+
+    private const val TAG = "DesmoSDK"
 
     /**
      * The shared Desmo client instance.
@@ -53,7 +56,7 @@ object Desmo {
     ) {
         try {
             if (context != null && !hasRequiredPermissions(context)) {
-                println("[DesmoSDK] WARNING: Required permissions are missing: ${getMissingPermissions(context)}")
+                Log.w(TAG, "Required permissions are missing: ${getMissingPermissions(context)}")
             }
 
             val config = DesmoConfig(
@@ -63,11 +66,11 @@ object Desmo {
             client = DesmoClient(config, context)
 
             if (config.loggingEnabled) {
-                println("[DesmoSDK] Setup successful pointing to: ${environment.baseUrl}")
+                Log.d(TAG, "Setup successful pointing to: ${environment.baseUrl}")
             }
         } catch (t: Throwable) {
             // Mirror the iOS behavior of logging on failure.
-            println("[DesmoSDK] Setup failed: $t")
+            Log.e(TAG, "Setup failed: $t")
         }
     }
 
