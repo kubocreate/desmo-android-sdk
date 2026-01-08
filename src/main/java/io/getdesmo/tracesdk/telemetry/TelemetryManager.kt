@@ -9,8 +9,8 @@ import io.getdesmo.tracesdk.telemetry.collectors.LocationCollector
 import io.getdesmo.tracesdk.telemetry.collectors.SensorCollector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -30,7 +30,9 @@ internal class TelemetryManager(
     }
 
     private val appContext = context.applicationContext
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // Scope is created fresh on start() and cancelled on stop()
+    private var scope: CoroutineScope? = null
 
     // Sub-collectors
     private val sensorManager = appContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -50,9 +52,11 @@ internal class TelemetryManager(
             )
 
     private var sessionId: String? = null
-    private var uploadJob: Job? = null
 
     override fun start(sessionId: String) {
+        // Create a fresh scope for this session
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
         this.sessionId = sessionId
         sensorCollector.start()
         locationCollector.start()
@@ -60,7 +64,10 @@ internal class TelemetryManager(
     }
 
     override fun stop() {
-        stopUploadLoop()
+        // Cancel all coroutines (upload loop, buffer adds, etc.)
+        scope?.cancel()
+        scope = null
+
         sensorCollector.stop()
         locationCollector.stop()
     }
@@ -81,6 +88,8 @@ internal class TelemetryManager(
     }
 
     private fun onSensorSample(imu: ImuPayload, barometer: BarometerPayload?) {
+        val currentScope = scope ?: return // Don't add samples if not recording
+
         val tsSeconds = System.currentTimeMillis() / 1000.0
         val sample =
                 TelemetrySample(
@@ -90,25 +99,19 @@ internal class TelemetryManager(
                         position = locationCollector.latestPosition,
                         context = contextCollector.getContext()
                 )
-        scope.launch { buffer.add(sample) }
+        currentScope.launch { buffer.add(sample) }
     }
 
     private fun startUploadLoop() {
-        if (uploadJob != null) return
+        val currentScope = scope ?: return
 
-        uploadJob =
-                scope.launch {
-                    while (true) {
-                        delay(UPLOAD_INTERVAL_MS)
-                        val batch = buffer.drain()
-                        val sid = sessionId ?: continue
-                        uploader.upload(sid, batch)
-                    }
-                }
-    }
-
-    private fun stopUploadLoop() {
-        uploadJob?.cancel()
-        uploadJob = null
+        currentScope.launch {
+            while (true) {
+                delay(UPLOAD_INTERVAL_MS)
+                val batch = buffer.drain()
+                val sid = sessionId ?: continue
+                uploader.upload(sid, batch)
+            }
+        }
     }
 }
