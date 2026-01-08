@@ -7,7 +7,7 @@ import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.api.DesmoClientError
 import io.getdesmo.tracesdk.api.Session
 import io.getdesmo.tracesdk.network.HttpClient
-import io.getdesmo.tracesdk.network.HttpError
+import io.getdesmo.tracesdk.network.RequestError
 import io.getdesmo.tracesdk.telemetry.TelemetryProvider
 import io.getdesmo.tracesdk.telemetry.HttpTelemetryProvider
 import io.getdesmo.tracesdk.telemetry.NoopTelemetryProvider
@@ -133,13 +133,13 @@ class DesmoClient(
             currentSessionId = session.sessionId
             state = SessionState.RECORDING
             session
-        } catch (e: HttpError) {
+        } catch (e: RequestError) {
             // Roll back state on failure
             state = SessionState.IDLE
             throw DesmoClientError.Http(e)
         } catch (t: Throwable) {
             state = SessionState.IDLE
-            throw DesmoClientError.Http(HttpError.NetworkError(t))
+            throw DesmoClientError.Http(RequestError.NetworkError(t))
         }
     }
 
@@ -240,13 +240,13 @@ class DesmoClient(
             state = SessionState.IDLE
             currentSessionId = null
             session
-        } catch (e: HttpError) {
+        } catch (e: RequestError) {
             // Revert to recording so caller can retry stop
             state = SessionState.RECORDING
             throw DesmoClientError.Http(e)
         } catch (t: Throwable) {
             state = SessionState.RECORDING
-            throw DesmoClientError.Http(HttpError.NetworkError(t))
+            throw DesmoClientError.Http(RequestError.NetworkError(t))
         }
     }
 

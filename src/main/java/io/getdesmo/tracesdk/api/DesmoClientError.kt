@@ -1,6 +1,6 @@
 package io.getdesmo.tracesdk.api
 
-import io.getdesmo.tracesdk.network.HttpError
+import io.getdesmo.tracesdk.network.RequestError
 
 /**
  * Top-level errors surfaced by the Desmo client.
@@ -30,6 +30,6 @@ sealed class DesmoClientError(message: String? = null) : Exception(message) {
     /**
      * Wrapped HTTP-layer error. Filled in once HTTP is implemented.
      */
-    data class Http(val error: HttpError) : DesmoClientError("HTTP error: $error")
+    data class Http(val error: RequestError) : DesmoClientError("HTTP error: $error")
 }
 

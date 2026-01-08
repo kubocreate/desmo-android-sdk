@@ -17,7 +17,7 @@ import android.os.Bundle
 import android.os.Looper
 import android.os.PowerManager
 import io.getdesmo.tracesdk.network.HttpClient
-import io.getdesmo.tracesdk.network.HttpError
+import io.getdesmo.tracesdk.network.RequestError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -473,7 +473,7 @@ internal class HttpTelemetryProvider(
             if (loggingEnabled) {
                 println("[DesmoSDK] Telemetry batch success")
             }
-        } catch (e: HttpError) {
+        } catch (e: RequestError) {
             if (loggingEnabled) {
                 println("[DesmoSDK] Telemetry batch failed: $e")
             }
