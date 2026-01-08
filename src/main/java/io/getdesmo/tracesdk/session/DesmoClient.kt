@@ -6,16 +6,16 @@ import android.os.Build
 import android.util.Log
 import io.getdesmo.tracesdk.api.DesmoClientError
 import io.getdesmo.tracesdk.api.Session
+import io.getdesmo.tracesdk.api.StartSessionRequest
+import io.getdesmo.tracesdk.api.StopSessionRequest
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.network.HttpClient
 import io.getdesmo.tracesdk.network.RequestError
 import io.getdesmo.tracesdk.telemetry.NoopTelemetryProvider
-import io.getdesmo.tracesdk.telemetry.SensorAvailability
 import io.getdesmo.tracesdk.telemetry.TelemetryManager
 import io.getdesmo.tracesdk.telemetry.TelemetryProvider
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -267,22 +267,4 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
             )
         }
     }
-
-    // MARK: - Internal request models
-
-    @Serializable
-    private data class StartSessionRequest(
-            val deliveryId: String,
-            val address: String?,
-            val platform: String?,
-            val sdkVersion: String?,
-            val deviceModel: String? = null,
-            val osVersion: String? = null,
-            val appVersion: String? = null,
-            val startLat: Double? = null,
-            val startLon: Double? = null,
-            val sensorAvailability: SensorAvailability? = null
-    )
-
-    @Serializable private data class StopSessionRequest(val sessionId: String)
 }
