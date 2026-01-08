@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
+import io.getdesmo.tracesdk.internal.DesmoRequirements
 import io.getdesmo.tracesdk.session.DesmoClient
 
 /**
@@ -55,8 +56,8 @@ object Desmo {
         environment: DesmoEnvironment
     ) {
         try {
-            if (context != null && !hasRequiredPermissions(context)) {
-                Log.w(TAG, "Required permissions are missing: ${getMissingPermissions(context)}")
+            if (context != null && !DesmoRequirements.hasRequiredPermissions(context)) {
+                Log.w(TAG, "Required permissions are missing: ${DesmoRequirements.getMissingPermissions(context)}")
             }
 
             val config = DesmoConfig(
@@ -77,14 +78,12 @@ object Desmo {
     /**
      * Returns the array of Android runtime permissions required by the SDK.
      *
-     * Currently: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION
+     * Currently: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, 
+     * and ACTIVITY_RECOGNITION (on API 29+).
      */
     @JvmStatic
     fun getRequiredPermissions(): Array<String> {
-        return arrayOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        )
+        return DesmoRequirements.getRequiredPermissions()
     }
 
     /**
@@ -92,7 +91,7 @@ object Desmo {
      */
     @JvmStatic
     fun hasRequiredPermissions(context: Context): Boolean {
-        return getMissingPermissions(context).isEmpty()
+        return DesmoRequirements.hasRequiredPermissions(context)
     }
 
     /**
@@ -100,12 +99,6 @@ object Desmo {
      */
     @JvmStatic
     fun getMissingPermissions(context: Context): List<String> {
-        val required = getRequiredPermissions()
-        return required.filter { permission ->
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                context,
-                permission
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
+        return DesmoRequirements.getMissingPermissions(context)
     }
 }
