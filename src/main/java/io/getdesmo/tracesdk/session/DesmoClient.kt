@@ -11,7 +11,7 @@ import io.getdesmo.tracesdk.network.HttpClient
 import io.getdesmo.tracesdk.network.RequestError
 import io.getdesmo.tracesdk.telemetry.NoopTelemetryProvider
 import io.getdesmo.tracesdk.telemetry.SensorAvailability
-import io.getdesmo.tracesdk.telemetry.TelemetryCollector
+import io.getdesmo.tracesdk.telemetry.TelemetryManager
 import io.getdesmo.tracesdk.telemetry.TelemetryProvider
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,7 +50,7 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
 
     private val telemetry: TelemetryProvider =
             if (context != null) {
-                TelemetryCollector(context, httpClient, config.loggingEnabled)
+                TelemetryManager(context, httpClient, config.loggingEnabled)
             } else {
                 NoopTelemetryProvider()
             }

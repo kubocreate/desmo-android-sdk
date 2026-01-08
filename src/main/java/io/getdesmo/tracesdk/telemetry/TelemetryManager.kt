@@ -15,11 +15,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Main telemetry collector that coordinates sensors, location, context, buffering, and upload.
+ * Manages telemetry collection: coordinates sensors, location, context, buffering, and upload.
  *
  * Implements [TelemetryProvider] interface.
  */
-internal class TelemetryCollector(
+internal class TelemetryManager(
         context: Context,
         httpClient: HttpClient,
         private val loggingEnabled: Boolean
