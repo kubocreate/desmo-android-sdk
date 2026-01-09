@@ -1,5 +1,6 @@
 package io.getdesmo.tracesdk.telemetry
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -61,14 +62,17 @@ data class TelemetrySample(
 /**
  * Reports which sensors are available on the device.
  * Sent with session start so backend knows what data to expect.
+ *
+ * Uses @SerialName to match backend field naming convention (hasXxx).
  */
 @Serializable
 data class SensorAvailability(
-    val accelerometer: Boolean = false,
-    val gyroscope: Boolean = false,
-    val gravity: Boolean = false,
-    val rotationVector: Boolean = false,
-    val barometer: Boolean = false,
-    val gps: Boolean = false
+    @SerialName("hasAccelerometer") val accelerometer: Boolean = false,
+    @SerialName("hasGyroscope") val gyroscope: Boolean = false,
+    @SerialName("hasGravity") val gravity: Boolean = false,
+    @SerialName("hasRotationVector") val rotationVector: Boolean = false,
+    @SerialName("hasBarometer") val barometer: Boolean = false,
+    @SerialName("hasGps") val gps: Boolean = false,
+    @SerialName("hasMagnetometer") val magnetometer: Boolean = false
 )
 

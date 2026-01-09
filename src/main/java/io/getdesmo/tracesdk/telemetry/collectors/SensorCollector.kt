@@ -162,7 +162,8 @@ internal class SensorCollector(
                 rotationVector =
                         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null,
                 barometer = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null,
-                gps = false // GPS availability is handled by LocationCollector
+                gps = false, // GPS availability is handled by LocationCollector
+                magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null
         )
     }
 }
