@@ -1,11 +1,11 @@
 plugins {
-    id("com.android.library") version "8.2.0"
-    id("org.jetbrains.kotlin.android") version "1.9.20"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
-    id("com.google.devtools.ksp") version "1.9.20-1.0.14"  // KSP for Room
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
-    // id("maven-publish") // Not needed for JitPack / normal AAR builds
-    // id("signing")       // Only needed when publishing to Maven Central
+    // Versions are specified in settings.gradle.kts for standalone builds,
+    // or inherited from parent classpath when used as a submodule
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {

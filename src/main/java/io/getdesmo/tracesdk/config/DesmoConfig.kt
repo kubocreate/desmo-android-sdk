@@ -13,10 +13,10 @@ import io.getdesmo.tracesdk.api.DesmoClientError
  * @property telemetry Optional telemetry configuration for advanced tuning
  */
 data class DesmoConfig(
-    val apiKey: String,
-    val environment: DesmoEnvironment,
-    val loggingEnabled: Boolean = false,
-    val telemetry: TelemetryConfig = TelemetryConfig()
+        val apiKey: String,
+        val environment: DesmoEnvironment,
+        val loggingEnabled: Boolean = false,
+        val telemetry: TelemetryConfig = TelemetryConfig()
 ) {
 
     init {

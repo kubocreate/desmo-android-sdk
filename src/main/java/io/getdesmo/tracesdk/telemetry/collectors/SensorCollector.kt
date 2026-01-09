@@ -12,14 +12,14 @@ import io.getdesmo.tracesdk.telemetry.SensorAvailability
 /**
  * Collects IMU sensor data (accelerometer, gyroscope, gravity, rotation) and barometer.
  *
- * Samples are throttled to [sampleRateHz] to prevent excessive data collection.
- * Calls [onSample] at the configured rate.
+ * Samples are throttled to [sampleRateHz] to prevent excessive data collection. Calls [onSample] at
+ * the configured rate.
  */
 internal class SensorCollector(
-    private val sensorManager: SensorManager,
-    private val sampleRateHz: Int,
-    private val loggingEnabled: Boolean,
-    private val onSample: (ImuPayload, BarometerPayload?) -> Unit
+        private val sensorManager: SensorManager,
+        private val sampleRateHz: Int,
+        private val loggingEnabled: Boolean,
+        private val onSample: (ImuPayload, BarometerPayload?) -> Unit
 ) {
 
     private companion object {
@@ -46,62 +46,66 @@ internal class SensorCollector(
     @Volatile private var hasGravity = false
     @Volatile private var hasAttitude = false
 
-    private val listener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            // Wrapped in try/catch to guarantee SDK never crashes the host app
-            try {
-                when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER -> {
-                        accelValues[0] = event.values[0].toDouble()
-                        accelValues[1] = event.values[1].toDouble()
-                        accelValues[2] = event.values[2].toDouble()
-                        hasAccel = true
-                        emitSample()
-                    }
-                    Sensor.TYPE_GYROSCOPE -> {
-                        gyroValues[0] = event.values[0].toDouble()
-                        gyroValues[1] = event.values[1].toDouble()
-                        gyroValues[2] = event.values[2].toDouble()
-                        hasGyro = true
-                        emitSample()
-                    }
-                    Sensor.TYPE_GRAVITY -> {
-                        gravityValues[0] = event.values[0].toDouble()
-                        gravityValues[1] = event.values[1].toDouble()
-                        gravityValues[2] = event.values[2].toDouble()
-                        hasGravity = true
-                        emitSample()
-                    }
-                    Sensor.TYPE_ROTATION_VECTOR -> {
-                        // Convert rotation vector to quaternion [x, y, z, w]
-                        val q = FloatArray(4)
-                        SensorManager.getQuaternionFromVector(q, event.values)
-                        attitudeValues[0] = q[1].toDouble() // x
-                        attitudeValues[1] = q[2].toDouble() // y
-                        attitudeValues[2] = q[3].toDouble() // z
-                        attitudeValues[3] = q[0].toDouble() // w
-                        hasAttitude = true
-                        emitSample()
-                    }
-                    Sensor.TYPE_PRESSURE -> {
-                        latestBarometer = BarometerPayload(
-                            pressureHpa = event.values[0].toDouble(),
-                            relativeAltitudeM = null // Android doesn't provide relative altitude
-                        )
+    private val listener =
+            object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    // Wrapped in try/catch to guarantee SDK never crashes the host app
+                    try {
+                        when (event.sensor.type) {
+                            Sensor.TYPE_ACCELEROMETER -> {
+                                accelValues[0] = event.values[0].toDouble()
+                                accelValues[1] = event.values[1].toDouble()
+                                accelValues[2] = event.values[2].toDouble()
+                                hasAccel = true
+                                emitSample()
+                            }
+                            Sensor.TYPE_GYROSCOPE -> {
+                                gyroValues[0] = event.values[0].toDouble()
+                                gyroValues[1] = event.values[1].toDouble()
+                                gyroValues[2] = event.values[2].toDouble()
+                                hasGyro = true
+                                emitSample()
+                            }
+                            Sensor.TYPE_GRAVITY -> {
+                                gravityValues[0] = event.values[0].toDouble()
+                                gravityValues[1] = event.values[1].toDouble()
+                                gravityValues[2] = event.values[2].toDouble()
+                                hasGravity = true
+                                emitSample()
+                            }
+                            Sensor.TYPE_ROTATION_VECTOR -> {
+                                // Convert rotation vector to quaternion [x, y, z, w]
+                                val q = FloatArray(4)
+                                SensorManager.getQuaternionFromVector(q, event.values)
+                                attitudeValues[0] = q[1].toDouble() // x
+                                attitudeValues[1] = q[2].toDouble() // y
+                                attitudeValues[2] = q[3].toDouble() // z
+                                attitudeValues[3] = q[0].toDouble() // w
+                                hasAttitude = true
+                                emitSample()
+                            }
+                            Sensor.TYPE_PRESSURE -> {
+                                latestBarometer =
+                                        BarometerPayload(
+                                                pressureHpa = event.values[0].toDouble(),
+                                                relativeAltitudeM =
+                                                        null // Android doesn't provide relative
+                                                // altitude
+                                                )
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        // Log but never propagate - SDK must not crash host app
+                        if (loggingEnabled) {
+                            Log.e(TAG, "Sensor callback error: $t")
+                        }
                     }
                 }
-            } catch (t: Throwable) {
-                // Log but never propagate - SDK must not crash host app
-                if (loggingEnabled) {
-                    Log.e(TAG, "Sensor callback error: $t")
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+                    // No-op
                 }
             }
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-            // No-op
-        }
-    }
 
     private fun emitSample() {
         // Throttle: only emit if enough time has passed since last sample
@@ -111,12 +115,13 @@ internal class SensorCollector(
         }
         lastEmitTime = now
 
-        val imu = ImuPayload(
-            accel = if (hasAccel) accelValues.toList() else emptyList(),
-            gyro = if (hasGyro) gyroValues.toList() else emptyList(),
-            gravity = if (hasGravity) gravityValues.toList() else emptyList(),
-            attitude = if (hasAttitude) attitudeValues.toList() else emptyList()
-        )
+        val imu =
+                ImuPayload(
+                        accel = if (hasAccel) accelValues.toList() else emptyList(),
+                        gyro = if (hasGyro) gyroValues.toList() else emptyList(),
+                        gravity = if (hasGravity) gravityValues.toList() else emptyList(),
+                        attitude = if (hasAttitude) attitudeValues.toList() else emptyList()
+                )
         onSample(imu, latestBarometer)
     }
 
@@ -151,12 +156,13 @@ internal class SensorCollector(
     /** Returns which sensors are available on this device. */
     fun getAvailability(): SensorAvailability {
         return SensorAvailability(
-            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null,
-            gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null,
-            gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY) != null,
-            rotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null,
-            barometer = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null,
-            gps = false // GPS availability is handled by LocationCollector
+                accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null,
+                gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null,
+                gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY) != null,
+                rotationVector =
+                        sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null,
+                barometer = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null,
+                gps = false // GPS availability is handled by LocationCollector
         )
     }
 }
