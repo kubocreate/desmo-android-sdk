@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.api
+package io.getdesmo.tracesdk.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -10,9 +10,9 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 enum class SessionStatus {
-  @SerialName("recording") RECORDING,
-  @SerialName("completed") COMPLETED,
-  @SerialName("failed") FAILED
+    @SerialName("recording") RECORDING,
+    @SerialName("completed") COMPLETED,
+    @SerialName("failed") FAILED
 }
 
 /**
@@ -20,4 +20,8 @@ enum class SessionStatus {
  *
  * Returned by [DesmoClient.startSession] and [DesmoClient.stopSession].
  */
-@Serializable data class Session(val sessionId: String, val status: SessionStatus)
+@Serializable
+data class Session(
+    val sessionId: String,
+    val status: SessionStatus
+)

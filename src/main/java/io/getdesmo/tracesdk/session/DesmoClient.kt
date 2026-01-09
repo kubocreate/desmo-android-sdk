@@ -5,12 +5,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import io.getdesmo.tracesdk.api.DesmoClientError
-import io.getdesmo.tracesdk.api.Session
-import io.getdesmo.tracesdk.api.StartSessionRequest
-import io.getdesmo.tracesdk.api.StopSessionRequest
 import io.getdesmo.tracesdk.config.DesmoConfig
+import io.getdesmo.tracesdk.models.Address
+import io.getdesmo.tracesdk.models.Device
+import io.getdesmo.tracesdk.models.Location
+import io.getdesmo.tracesdk.models.Session
+import io.getdesmo.tracesdk.models.SessionType
 import io.getdesmo.tracesdk.network.HttpClient
 import io.getdesmo.tracesdk.network.RequestError
+import io.getdesmo.tracesdk.network.StartSessionRequest
+import io.getdesmo.tracesdk.network.StopSessionRequest
 import io.getdesmo.tracesdk.telemetry.NoopTelemetryProvider
 import io.getdesmo.tracesdk.telemetry.TelemetryManager
 import io.getdesmo.tracesdk.telemetry.TelemetryProvider
@@ -24,7 +28,7 @@ import kotlinx.serialization.json.Json
  *
  * Mirrors the Swift `DesmoClient` class.
  */
-class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
+class DesmoClient(private val config: DesmoConfig, private val appContext: Context? = null) {
 
     private companion object {
         private const val TAG = "DesmoSDK"
@@ -49,8 +53,8 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
     private val httpClient: HttpClient = HttpClient(config)
 
     private val telemetry: TelemetryProvider =
-            if (context != null) {
-                TelemetryManager(context, httpClient, config.loggingEnabled)
+            if (appContext != null) {
+                TelemetryManager(appContext, httpClient, config.loggingEnabled)
             } else {
                 NoopTelemetryProvider()
             }
@@ -60,18 +64,18 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
     /**
      * Start a Desmo session for a specific delivery.
      *
-     * This mirrors the Swift signature: `startSession(deliveryId: String, address: String?,
-     * metadata: [String: String]?)`
+     * @param deliveryId Unique identifier for this delivery (from your system)
+     * @param sessionType Type of session: PICKUP, DROP, or TRANSIT
+     * @param externalRiderId Optional external rider/driver ID from your system
+     * @param address Optional delivery address (structured or raw string via Address.fromRaw())
+     * @param startLocation Optional starting location (auto-captured if not provided)
      */
     suspend fun startSession(
             deliveryId: String,
-            address: String? = null,
-            metadata: Map<String, String>? = null,
-            deviceModel: String? = null,
-            osVersion: String? = null,
-            appVersion: String? = null,
-            startLat: Double? = null,
-            startLon: Double? = null
+            sessionType: SessionType,
+            externalRiderId: String? = null,
+            address: Address? = null,
+            startLocation: Location? = null
     ): Session =
             stateMutex.withLock {
                 // 1. Check state: must be idle
@@ -85,42 +89,53 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
                 state = SessionState.STARTING
 
                 // Capture anchor position if not provided
-                val anchorPosition =
-                        if (startLat == null || startLon == null) {
-                            telemetry.getLastKnownPosition()
-                        } else {
-                            null
-                        }
-                val finalStartLat = startLat ?: anchorPosition?.lat
-                val finalStartLon = startLon ?: anchorPosition?.lng
-
-                if (config.loggingEnabled && anchorPosition != null) {
-                    Log.d(
-                            TAG,
-                            "Anchor position captured: ${anchorPosition.lat}, ${anchorPosition.lng}"
-                    )
-                }
+                val finalStartLocation =
+                        startLocation
+                                ?: run {
+                                    val position = telemetry.getLastKnownPosition()
+                                    if (position != null) {
+                                        if (config.loggingEnabled) {
+                                            Log.d(
+                                                    TAG,
+                                                    "Anchor position captured: ${position.lat}, ${position.lng}"
+                                            )
+                                        }
+                                        Location(lat = position.lat, lng = position.lng)
+                                    } else {
+                                        null
+                                    }
+                                }
 
                 // Get sensor availability
                 val sensorAvailability = telemetry.getSensorAvailability()
                 if (config.loggingEnabled) {
                     Log.d(
                             TAG,
-                            "Sensor availability: accel=${sensorAvailability.accelerometer}, gyro=${sensorAvailability.gyroscope}, baro=${sensorAvailability.barometer}, gps=${sensorAvailability.gps}"
+                            "Sensor availability: accel=${sensorAvailability.accelerometer}, " +
+                                    "gyro=${sensorAvailability.gyroscope}, " +
+                                    "baro=${sensorAvailability.barometer}, " +
+                                    "gps=${sensorAvailability.gps}"
                     )
                 }
+
+                // Build device info
+                val device =
+                        Device(
+                                platform = "android",
+                                sdkVersion = SDK_VERSION,
+                                deviceModel = Build.MODEL,
+                                osVersion = Build.VERSION.RELEASE ?: "SDK_${Build.VERSION.SDK_INT}",
+                                appVersion = resolveAppVersion()
+                        )
 
                 val requestBody =
                         StartSessionRequest(
                                 deliveryId = deliveryId,
+                                sessionType = sessionType,
+                                externalRiderId = externalRiderId,
                                 address = address,
-                                platform = "android",
-                                sdkVersion = SDK_VERSION,
-                                deviceModel = deviceModel,
-                                osVersion = osVersion,
-                                appVersion = appVersion,
-                                startLat = finalStartLat,
-                                startLon = finalStartLon,
+                                device = device,
+                                startLocation = finalStartLocation,
                                 sensorAvailability = sensorAvailability
                         )
 
@@ -151,42 +166,8 @@ class DesmoClient(private val config: DesmoConfig, context: Context? = null) {
                 }
             }
 
-    /**
-     * Convenience helper that fills in common device/app metadata for you.
-     *
-     * - deviceModel: Build.MODEL
-     * - osVersion: Build.VERSION.RELEASE (or SDK_INT if unavailable)
-     * - appVersion: versionName from PackageManager
-     *
-     * You still provide deliveryId/address/location; this method just avoids duplicating the
-     * boilerplate in every app.
-     */
-    suspend fun startSessionWithDeviceInfo(
-            context: Context,
-            deliveryId: String,
-            address: String? = null,
-            metadata: Map<String, String>? = null,
-            startLat: Double? = null,
-            startLon: Double? = null
-    ): Session {
-        val deviceModel = Build.MODEL
-        val osVersion = Build.VERSION.RELEASE ?: "SDK_${Build.VERSION.SDK_INT}"
-
-        val appVersion = resolveAppVersion(context)
-
-        return startSession(
-                deliveryId = deliveryId,
-                address = address,
-                metadata = metadata,
-                deviceModel = deviceModel,
-                osVersion = osVersion,
-                appVersion = appVersion,
-                startLat = startLat,
-                startLon = startLon
-        )
-    }
-
-    private fun resolveAppVersion(context: Context): String? {
+    private fun resolveAppVersion(): String? {
+        val context = appContext ?: return null
         return try {
             val pm = context.packageManager
             val packageName = context.packageName
