@@ -2,6 +2,7 @@ plugins {
     id("com.android.library") version "8.2.0"
     id("org.jetbrains.kotlin.android") version "1.9.20"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
+    id("com.google.devtools.ksp") version "1.9.20-1.0.14"  // KSP for Room
     id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
     // id("maven-publish") // Not needed for JitPack / normal AAR builds
     // id("signing")       // Only needed when publishing to Maven Central
@@ -149,6 +150,12 @@ dependencies {
 
     // AndroidX core for permission helpers and system services
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Room for persistent telemetry queue (offline support)
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
