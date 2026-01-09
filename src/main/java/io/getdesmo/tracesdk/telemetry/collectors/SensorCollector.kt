@@ -12,10 +12,12 @@ import io.getdesmo.tracesdk.telemetry.SensorAvailability
 /**
  * Collects IMU sensor data (accelerometer, gyroscope, gravity, rotation) and barometer.
  *
- * Calls [onSample] whenever new IMU data is available.
+ * Samples are throttled to [sampleRateHz] to prevent excessive data collection.
+ * Calls [onSample] at the configured rate.
  */
 internal class SensorCollector(
     private val sensorManager: SensorManager,
+    private val sampleRateHz: Int,
     private val loggingEnabled: Boolean,
     private val onSample: (ImuPayload, BarometerPayload?) -> Unit
 ) {
@@ -23,6 +25,10 @@ internal class SensorCollector(
     private companion object {
         private const val TAG = "DesmoSDK"
     }
+
+    // Throttling: minimum ms between emitted samples
+    private val minIntervalMs = 1000L / sampleRateHz
+    @Volatile private var lastEmitTime = 0L
 
     // Latest barometer reading
     @Volatile
@@ -98,6 +104,13 @@ internal class SensorCollector(
     }
 
     private fun emitSample() {
+        // Throttle: only emit if enough time has passed since last sample
+        val now = System.currentTimeMillis()
+        if (now - lastEmitTime < minIntervalMs) {
+            return // Skip this sample - too soon
+        }
+        lastEmitTime = now
+
         val imu = ImuPayload(
             accel = if (hasAccel) accelValues.toList() else emptyList(),
             gyro = if (hasGyro) gyroValues.toList() else emptyList(),

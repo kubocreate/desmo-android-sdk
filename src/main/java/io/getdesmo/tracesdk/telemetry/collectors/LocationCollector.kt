@@ -12,15 +12,17 @@ import io.getdesmo.tracesdk.telemetry.PositionPayload
  * Collects GPS and network location updates.
  *
  * Updates [latestPosition] whenever a new location is received.
+ *
+ * @param locationUpdateMs Interval between location updates in milliseconds
  */
 internal class LocationCollector(
     private val locationManager: LocationManager?,
+    private val locationUpdateMs: Long,
     private val loggingEnabled: Boolean
 ) {
 
     private companion object {
         private const val TAG = "DesmoSDK"
-        private const val UPDATE_INTERVAL_MS = 2_000L
     }
 
     /** The most recent location reading. */
@@ -66,13 +68,13 @@ internal class LocationCollector(
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 lm.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    UPDATE_INTERVAL_MS,
+                    locationUpdateMs,
                     0f,
                     listener,
                     Looper.getMainLooper()
                 )
                 if (loggingEnabled) {
-                    Log.d(TAG, "GPS location updates started")
+                    Log.d(TAG, "GPS location updates started (interval: ${locationUpdateMs}ms)")
                 }
             }
 
@@ -80,7 +82,7 @@ internal class LocationCollector(
             if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 lm.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
-                    UPDATE_INTERVAL_MS,
+                    locationUpdateMs,
                     0f,
                     listener,
                     Looper.getMainLooper()

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import io.getdesmo.tracesdk.BuildConfig
 import io.getdesmo.tracesdk.api.DesmoClientError
 import io.getdesmo.tracesdk.api.DesmoResult
 import io.getdesmo.tracesdk.config.DesmoConfig
@@ -35,8 +36,8 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     private companion object {
         private const val TAG = "DesmoSDK"
 
-        // Keep this in sync with the published Android SDK version.
-        private const val SDK_VERSION = "0.1.2"
+        // SDK version is now sourced from BuildConfig (set in build.gradle.kts)
+        private val SDK_VERSION = BuildConfig.SDK_VERSION
 
         private val json = Json { ignoreUnknownKeys = true }
     }
@@ -56,7 +57,7 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
 
     private val telemetry: TelemetryProvider =
             if (appContext != null) {
-                TelemetryManager(appContext, httpClient, config.loggingEnabled)
+                TelemetryManager(appContext, httpClient, config.telemetry, config.loggingEnabled)
             } else {
                 NoopTelemetryProvider()
             }

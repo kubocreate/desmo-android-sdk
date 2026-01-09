@@ -18,6 +18,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        // SDK version available at runtime via BuildConfig.SDK_VERSION
+        buildConfigField("String", "SDK_VERSION", "\"0.2.0\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.hardware.SensorManager
 import android.location.LocationManager
 import android.util.Log
+import io.getdesmo.tracesdk.config.TelemetryConfig
 import io.getdesmo.tracesdk.network.HttpClient
 import io.getdesmo.tracesdk.telemetry.collectors.ContextCollector
 import io.getdesmo.tracesdk.telemetry.collectors.LocationCollector
@@ -30,12 +31,12 @@ import kotlinx.coroutines.launch
 internal class TelemetryManager(
     context: Context,
     httpClient: HttpClient,
+    private val telemetryConfig: TelemetryConfig,
     private val loggingEnabled: Boolean
 ) : TelemetryProvider {
 
     private companion object {
         private const val TAG = "DesmoSDK"
-        private const val UPLOAD_INTERVAL_MS = 5_000L
         private const val RETRY_INTERVAL_MS = 30_000L // Retry pending batches every 30 seconds
     }
 
@@ -56,11 +57,16 @@ internal class TelemetryManager(
     private val locationManager =
         appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
 
-    // Collectors
+    // Collectors - configured via TelemetryConfig
     private val contextCollector = ContextCollector(appContext, loggingEnabled)
-    private val locationCollector = LocationCollector(locationManager, loggingEnabled)
+    private val locationCollector = LocationCollector(
+        locationManager = locationManager,
+        locationUpdateMs = telemetryConfig.locationUpdateMs,
+        loggingEnabled = loggingEnabled
+    )
     private val sensorCollector = SensorCollector(
         sensorManager = sensorManager,
+        sampleRateHz = telemetryConfig.sampleRateHz,
         loggingEnabled = loggingEnabled,
         onSample = { imu, barometer -> onSensorSample(imu, barometer) }
     )
@@ -148,14 +154,14 @@ internal class TelemetryManager(
     }
 
     /**
-     * Upload loop: drain buffer and enqueue samples every [UPLOAD_INTERVAL_MS].
+     * Upload loop: drain buffer and enqueue samples at configured interval.
      */
     private fun startUploadLoop() {
         val currentScope = scope ?: return
 
         currentScope.launch {
             while (true) {
-                delay(UPLOAD_INTERVAL_MS)
+                delay(telemetryConfig.uploadIntervalMs)
                 val sid = sessionId ?: continue
                 val batch = buffer.drain()
                 if (batch.isNotEmpty()) {
