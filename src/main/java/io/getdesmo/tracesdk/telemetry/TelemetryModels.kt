@@ -51,12 +51,20 @@ data class ContextPayload(
 )
 
 @Serializable
+data class MagnetometerPayload(
+    val x: Double,  // μT (microtesla)
+    val y: Double,
+    val z: Double
+)
+
+@Serializable
 data class TelemetrySample(
     val ts: Double,
     val imu: ImuPayload? = null,
     val barometer: BarometerPayload? = null,
     val position: PositionPayload? = null,
-    val context: ContextPayload? = null
+    val context: ContextPayload? = null,
+    val magnetometer: MagnetometerPayload? = null
 )
 
 /**

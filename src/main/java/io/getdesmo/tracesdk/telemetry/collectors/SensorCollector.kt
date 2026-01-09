@@ -7,10 +7,11 @@ import android.hardware.SensorManager
 import android.util.Log
 import io.getdesmo.tracesdk.telemetry.BarometerPayload
 import io.getdesmo.tracesdk.telemetry.ImuPayload
+import io.getdesmo.tracesdk.telemetry.MagnetometerPayload
 import io.getdesmo.tracesdk.telemetry.SensorAvailability
 
 /**
- * Collects IMU sensor data (accelerometer, gyroscope, gravity, rotation) and barometer.
+ * Collects IMU sensor data (accelerometer, gyroscope, gravity, rotation), barometer, and magnetometer.
  *
  * Samples are throttled to [sampleRateHz] to prevent excessive data collection. Calls [onSample] at
  * the configured rate.
@@ -19,7 +20,7 @@ internal class SensorCollector(
         private val sensorManager: SensorManager,
         private val sampleRateHz: Int,
         private val loggingEnabled: Boolean,
-        private val onSample: (ImuPayload, BarometerPayload?) -> Unit
+        private val onSample: (ImuPayload, BarometerPayload?, MagnetometerPayload?) -> Unit
 ) {
 
     private companion object {
@@ -33,6 +34,11 @@ internal class SensorCollector(
     // Latest barometer reading
     @Volatile
     var latestBarometer: BarometerPayload? = null
+        private set
+
+    // Latest magnetometer reading
+    @Volatile
+    var latestMagnetometer: MagnetometerPayload? = null
         private set
 
     // IMU component values
@@ -93,6 +99,14 @@ internal class SensorCollector(
                                                 // altitude
                                                 )
                             }
+                            Sensor.TYPE_MAGNETIC_FIELD -> {
+                                latestMagnetometer =
+                                        MagnetometerPayload(
+                                                x = event.values[0].toDouble(),  // μT
+                                                y = event.values[1].toDouble(),
+                                                z = event.values[2].toDouble()
+                                        )
+                            }
                         }
                     } catch (t: Throwable) {
                         // Log but never propagate - SDK must not crash host app
@@ -122,7 +136,7 @@ internal class SensorCollector(
                         gravity = if (hasGravity) gravityValues.toList() else emptyList(),
                         attitude = if (hasAttitude) attitudeValues.toList() else emptyList()
                 )
-        onSample(imu, latestBarometer)
+        onSample(imu, latestBarometer, latestMagnetometer)
     }
 
     fun start() {
@@ -131,6 +145,7 @@ internal class SensorCollector(
         val gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         val rotation = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         val pressure = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
+        val magnet = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
         // ~50 Hz updates for motion analysis
         val delayUs = SensorManager.SENSOR_DELAY_GAME
@@ -140,9 +155,10 @@ internal class SensorCollector(
         gravity?.let { sensorManager.registerListener(listener, it, delayUs) }
         rotation?.let { sensorManager.registerListener(listener, it, delayUs) }
         pressure?.let { sensorManager.registerListener(listener, it, delayUs) }
+        magnet?.let { sensorManager.registerListener(listener, it, delayUs) }
 
         if (loggingEnabled) {
-            Log.d(TAG, "Sensors started (accel/gyro/gravity/rotation/pressure)")
+            Log.d(TAG, "Sensors started (accel/gyro/gravity/rotation/pressure/magnet)")
         }
     }
 

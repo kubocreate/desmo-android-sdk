@@ -68,7 +68,7 @@ internal class TelemetryManager(
         sensorManager = sensorManager,
         sampleRateHz = telemetryConfig.sampleRateHz,
         loggingEnabled = loggingEnabled,
-        onSample = { imu, barometer -> onSensorSample(imu, barometer) }
+        onSample = { imu, barometer, magnetometer -> onSensorSample(imu, barometer, magnetometer) }
     )
 
     // Buffer + Queue
@@ -139,7 +139,7 @@ internal class TelemetryManager(
         return locationCollector.getLastKnownPosition()
     }
 
-    private fun onSensorSample(imu: ImuPayload, barometer: BarometerPayload?) {
+    private fun onSensorSample(imu: ImuPayload, barometer: BarometerPayload?, magnetometer: MagnetometerPayload?) {
         val currentScope = scope ?: return // Don't add samples if not recording
 
         val tsSeconds = System.currentTimeMillis() / 1000.0
@@ -148,7 +148,8 @@ internal class TelemetryManager(
             imu = imu,
             barometer = barometer,
             position = locationCollector.latestPosition,
-            context = contextCollector.getContext()
+            context = contextCollector.getContext(),
+            magnetometer = magnetometer
         )
         currentScope.launch { buffer.add(sample) }
     }
