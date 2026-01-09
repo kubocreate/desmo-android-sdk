@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import io.getdesmo.tracesdk.api.DesmoClientError
+import io.getdesmo.tracesdk.api.DesmoResult
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.models.Address
 import io.getdesmo.tracesdk.models.Device
@@ -26,7 +27,8 @@ import kotlinx.serialization.json.Json
 /**
  * Main Desmo client for starting and stopping recording sessions.
  *
- * Mirrors the Swift `DesmoClient` class.
+ * All public methods return [DesmoResult] instead of throwing exceptions, guaranteeing that the SDK
+ * will never crash the host application.
  */
 class DesmoClient(private val config: DesmoConfig, private val appContext: Context? = null) {
 
@@ -64,11 +66,14 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     /**
      * Start a Desmo session for a specific delivery.
      *
+     * This method **never throws**. All errors are returned as [DesmoResult.Failure].
+     *
      * @param deliveryId Unique identifier for this delivery (from your system)
      * @param sessionType Type of session: PICKUP, DROP, or TRANSIT
      * @param externalRiderId Optional external rider/driver ID from your system
      * @param address Optional delivery address (structured or raw string via Address.fromRaw())
      * @param startLocation Optional starting location (auto-captured if not provided)
+     * @return [DesmoResult.Success] with the session, or [DesmoResult.Failure] with error details
      */
     suspend fun startSession(
             deliveryId: String,
@@ -76,70 +81,78 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
             externalRiderId: String? = null,
             address: Address? = null,
             startLocation: Location? = null
-    ): Session =
+    ): DesmoResult<Session> =
             stateMutex.withLock {
-                // 1. Check state: must be idle
-                requireState(SessionState.IDLE)
-
-                if (config.loggingEnabled) {
-                    Log.d(TAG, "Starting session for delivery: $deliveryId")
-                }
-
-                // 2. Transition state: idle -> starting
-                state = SessionState.STARTING
-
-                // Capture anchor position if not provided
-                val finalStartLocation =
-                        startLocation
-                                ?: run {
-                                    val position = telemetry.getLastKnownPosition()
-                                    if (position != null) {
-                                        if (config.loggingEnabled) {
-                                            Log.d(
-                                                    TAG,
-                                                    "Anchor position captured: ${position.lat}, ${position.lng}"
-                                            )
-                                        }
-                                        Location(lat = position.lat, lng = position.lng)
-                                    } else {
-                                        null
-                                    }
-                                }
-
-                // Get sensor availability
-                val sensorAvailability = telemetry.getSensorAvailability()
-                if (config.loggingEnabled) {
-                    Log.d(
-                            TAG,
-                            "Sensor availability: accel=${sensorAvailability.accelerometer}, " +
-                                    "gyro=${sensorAvailability.gyroscope}, " +
-                                    "baro=${sensorAvailability.barometer}, " +
-                                    "gps=${sensorAvailability.gps}"
-                    )
-                }
-
-                // Build device info
-                val device =
-                        Device(
-                                platform = "android",
-                                sdkVersion = SDK_VERSION,
-                                deviceModel = Build.MODEL,
-                                osVersion = Build.VERSION.RELEASE ?: "SDK_${Build.VERSION.SDK_INT}",
-                                appVersion = resolveAppVersion()
-                        )
-
-                val requestBody =
-                        StartSessionRequest(
-                                deliveryId = deliveryId,
-                                sessionType = sessionType,
-                                externalRiderId = externalRiderId,
-                                address = address,
-                                device = device,
-                                startLocation = finalStartLocation,
-                                sensorAvailability = sensorAvailability
-                        )
-
                 try {
+                    // 1. Check state: must be idle
+                    if (state != SessionState.IDLE) {
+                        return@withLock DesmoResult.Failure(
+                                DesmoClientError.InvalidState(
+                                        expected = SessionState.IDLE.description,
+                                        actual = state.description
+                                )
+                        )
+                    }
+
+                    if (config.loggingEnabled) {
+                        Log.d(TAG, "Starting session for delivery: $deliveryId")
+                    }
+
+                    // 2. Transition state: idle -> starting
+                    state = SessionState.STARTING
+
+                    // Capture anchor position if not provided
+                    val finalStartLocation =
+                            startLocation
+                                    ?: run {
+                                        val position = telemetry.getLastKnownPosition()
+                                        if (position != null) {
+                                            if (config.loggingEnabled) {
+                                                Log.d(
+                                                        TAG,
+                                                        "Anchor position captured: ${position.lat}, ${position.lng}"
+                                                )
+                                            }
+                                            Location(lat = position.lat, lng = position.lng)
+                                        } else {
+                                            null
+                                        }
+                                    }
+
+                    // Get sensor availability
+                    val sensorAvailability = telemetry.getSensorAvailability()
+                    if (config.loggingEnabled) {
+                        Log.d(
+                                TAG,
+                                "Sensor availability: accel=${sensorAvailability.accelerometer}, " +
+                                        "gyro=${sensorAvailability.gyroscope}, " +
+                                        "baro=${sensorAvailability.barometer}, " +
+                                        "gps=${sensorAvailability.gps}"
+                        )
+                    }
+
+                    // Build device info
+                    val device =
+                            Device(
+                                    platform = "android",
+                                    sdkVersion = SDK_VERSION,
+                                    deviceModel = Build.MODEL,
+                                    osVersion = Build.VERSION.RELEASE
+                                                    ?: "SDK_${Build.VERSION.SDK_INT}",
+                                    appVersion = resolveAppVersion()
+                            )
+
+                    val requestBody =
+                            StartSessionRequest(
+                                    deliveryId = deliveryId,
+                                    sessionType = sessionType,
+                                    externalRiderId = externalRiderId,
+                                    address = address,
+                                    device = device,
+                                    startLocation = finalStartLocation,
+                                    sensorAvailability = sensorAvailability
+                            )
+
                     // 3. Perform network request
                     val jsonBody = json.encodeToString(requestBody)
                     val data = httpClient.post(path = "/v1/sessions/start", jsonBody = jsonBody)
@@ -155,14 +168,22 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     // 4. Transition state: starting -> recording
                     currentSessionId = session.sessionId
                     state = SessionState.RECORDING
-                    session
+
+                    DesmoResult.Success(session)
                 } catch (e: RequestError) {
                     // Roll back state on failure
                     state = SessionState.IDLE
-                    throw DesmoClientError.Http(e)
+                    if (config.loggingEnabled) {
+                        Log.e(TAG, "startSession failed: $e")
+                    }
+                    DesmoResult.Failure(DesmoClientError.Http(e))
                 } catch (t: Throwable) {
+                    // Roll back state on failure
                     state = SessionState.IDLE
-                    throw DesmoClientError.Http(RequestError.NetworkError(t))
+                    if (config.loggingEnabled) {
+                        Log.e(TAG, "startSession failed: $t")
+                    }
+                    DesmoResult.Failure(DesmoClientError.Http(RequestError.NetworkError(t)))
                 }
             }
 
@@ -187,34 +208,39 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     /**
      * Stop the currently active Desmo session.
      *
-     * Mirrors the Swift `stopSession()` method.
+     * This method **never throws**. All errors are returned as [DesmoResult.Failure].
+     *
+     * @return [DesmoResult.Success] with the stopped session, or [DesmoResult.Failure] with error
+     * details
      */
-    suspend fun stopSession(): Session =
+    suspend fun stopSession(): DesmoResult<Session> =
             stateMutex.withLock {
-                // 1. Check state: must be recording and have a session id
-                if (state != SessionState.RECORDING || currentSessionId == null) {
-                    throw DesmoClientError.InvalidState(
-                            expected = SessionState.RECORDING.description,
-                            actual = state.description
-                    )
-                }
-
-                val sessionId = currentSessionId!!
-
-                if (config.loggingEnabled) {
-                    Log.d(TAG, "Stopping session: $sessionId")
-                }
-
-                // 2. Transition state: recording -> stopping
-                state = SessionState.STOPPING
-
-                // Flush and stop telemetry before notifying server
-                telemetry.flush()
-                telemetry.stop()
-
-                val requestBody = StopSessionRequest(sessionId = sessionId)
-
                 try {
+                    // 1. Check state: must be recording and have a session id
+                    if (state != SessionState.RECORDING || currentSessionId == null) {
+                        return@withLock DesmoResult.Failure(
+                                DesmoClientError.InvalidState(
+                                        expected = SessionState.RECORDING.description,
+                                        actual = state.description
+                                )
+                        )
+                    }
+
+                    val sessionId = currentSessionId!!
+
+                    if (config.loggingEnabled) {
+                        Log.d(TAG, "Stopping session: $sessionId")
+                    }
+
+                    // 2. Transition state: recording -> stopping
+                    state = SessionState.STOPPING
+
+                    // Flush and stop telemetry before notifying server
+                    telemetry.flush()
+                    telemetry.stop()
+
+                    val requestBody = StopSessionRequest(sessionId = sessionId)
+
                     // 3. Perform network request
                     val jsonBody = json.encodeToString(requestBody)
                     val data = httpClient.post(path = "/v1/sessions/stop", jsonBody = jsonBody)
@@ -227,25 +253,22 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     // 4. Transition state: stopping -> idle
                     state = SessionState.IDLE
                     currentSessionId = null
-                    session
+
+                    DesmoResult.Success(session)
                 } catch (e: RequestError) {
                     // Revert to recording so caller can retry stop
                     state = SessionState.RECORDING
-                    throw DesmoClientError.Http(e)
+                    if (config.loggingEnabled) {
+                        Log.e(TAG, "stopSession failed: $e")
+                    }
+                    DesmoResult.Failure(DesmoClientError.Http(e))
                 } catch (t: Throwable) {
+                    // Revert to recording so caller can retry stop
                     state = SessionState.RECORDING
-                    throw DesmoClientError.Http(RequestError.NetworkError(t))
+                    if (config.loggingEnabled) {
+                        Log.e(TAG, "stopSession failed: $t")
+                    }
+                    DesmoResult.Failure(DesmoClientError.Http(RequestError.NetworkError(t)))
                 }
             }
-
-    /** Helper to assert we are in a specific state. */
-    @Suppress("SameParameterValue")
-    private fun requireState(expected: SessionState) {
-        if (state != expected) {
-            throw DesmoClientError.InvalidState(
-                    expected = expected.description,
-                    actual = state.description
-            )
-        }
-    }
 }

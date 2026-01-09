@@ -7,6 +7,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.PowerManager
+import android.util.Log
 import io.getdesmo.tracesdk.telemetry.ContextPayload
 
 /**
@@ -14,10 +15,13 @@ import io.getdesmo.tracesdk.telemetry.ContextPayload
  *
  * Battery status is cached and refreshed every [BATTERY_REFRESH_INTERVAL_MS] to avoid
  * excessive system calls (registerReceiver is expensive).
+ *
+ * All methods are wrapped in try/catch to guarantee the SDK never crashes the host app.
  */
-internal class ContextCollector(context: Context) {
+internal class ContextCollector(context: Context, private val loggingEnabled: Boolean = false) {
 
     private companion object {
+        private const val TAG = "DesmoSDK"
         // Battery changes slowly - refresh every 30 seconds is plenty
         private const val BATTERY_REFRESH_INTERVAL_MS = 30_000L
     }
@@ -32,19 +36,38 @@ internal class ContextCollector(context: Context) {
     @Volatile private var cachedCharging: Boolean = false
     @Volatile private var lastBatteryRefreshTime: Long = 0L
 
-    /** Returns the current device context snapshot. */
+    /**
+     * Returns the current device context snapshot.
+     * Returns safe defaults if any system call fails.
+     */
     fun getContext(): ContextPayload {
-        // Refresh battery cache if stale
-        refreshBatteryCacheIfNeeded()
+        return try {
+            // Refresh battery cache if stale
+            refreshBatteryCacheIfNeeded()
 
-        return ContextPayload(
-            screenOn = powerManager?.isInteractive ?: true,
-            appForeground = true, // Approximation: SDK runs while app is active
-            batteryLevel = cachedBatteryLevel,
-            charging = cachedCharging,
-            network = getNetworkType(),
-            motionActivity = null
-        )
+            ContextPayload(
+                screenOn = powerManager?.isInteractive ?: true,
+                appForeground = true, // Approximation: SDK runs while app is active
+                batteryLevel = cachedBatteryLevel,
+                charging = cachedCharging,
+                network = getNetworkType(),
+                motionActivity = null
+            )
+        } catch (t: Throwable) {
+            // Log but never propagate - SDK must not crash host app
+            if (loggingEnabled) {
+                Log.e(TAG, "Context collection error: $t")
+            }
+            // Return safe defaults
+            ContextPayload(
+                screenOn = true,
+                appForeground = true,
+                batteryLevel = null,
+                charging = false,
+                network = "unknown",
+                motionActivity = null
+            )
+        }
     }
 
     /**

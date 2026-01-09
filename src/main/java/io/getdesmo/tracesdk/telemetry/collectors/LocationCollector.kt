@@ -30,7 +30,15 @@ internal class LocationCollector(
 
     private val listener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            latestPosition = location.toPositionPayload()
+            // Wrapped in try/catch to guarantee SDK never crashes the host app
+            try {
+                latestPosition = location.toPositionPayload()
+            } catch (t: Throwable) {
+                // Log but never propagate - SDK must not crash host app
+                if (loggingEnabled) {
+                    Log.e(TAG, "Location callback error: $t")
+                }
+            }
         }
 
         @Deprecated("Deprecated in Java")
@@ -85,13 +93,25 @@ internal class LocationCollector(
             if (loggingEnabled) {
                 Log.w(TAG, "Location permission not granted, skipping location telemetry")
             }
+        } catch (t: Throwable) {
+            // Log but never propagate - SDK must not crash host app
+            if (loggingEnabled) {
+                Log.e(TAG, "Location start error: $t")
+            }
         }
     }
 
     fun stop() {
-        locationManager?.removeUpdates(listener)
-        if (loggingEnabled) {
-            Log.d(TAG, "Location updates stopped")
+        try {
+            locationManager?.removeUpdates(listener)
+            if (loggingEnabled) {
+                Log.d(TAG, "Location updates stopped")
+            }
+        } catch (t: Throwable) {
+            // Log but never propagate - SDK must not crash host app
+            if (loggingEnabled) {
+                Log.e(TAG, "Location stop error: $t")
+            }
         }
     }
 

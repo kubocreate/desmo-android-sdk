@@ -9,6 +9,7 @@ import io.getdesmo.tracesdk.telemetry.collectors.ContextCollector
 import io.getdesmo.tracesdk.telemetry.collectors.LocationCollector
 import io.getdesmo.tracesdk.telemetry.collectors.SensorCollector
 import io.getdesmo.tracesdk.telemetry.persistence.TelemetryDatabase
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +41,13 @@ internal class TelemetryManager(
 
     private val appContext = context.applicationContext
 
+    // Exception handler for coroutines - logs but never crashes host app
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        if (loggingEnabled) {
+            Log.e(TAG, "Coroutine exception: $throwable")
+        }
+    }
+
     // Scope is created fresh on start() and cancelled on stop()
     private var scope: CoroutineScope? = null
 
@@ -49,7 +57,7 @@ internal class TelemetryManager(
         appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
 
     // Collectors
-    private val contextCollector = ContextCollector(appContext)
+    private val contextCollector = ContextCollector(appContext, loggingEnabled)
     private val locationCollector = LocationCollector(locationManager, loggingEnabled)
     private val sensorCollector = SensorCollector(
         sensorManager = sensorManager,
@@ -71,8 +79,8 @@ internal class TelemetryManager(
     }
 
     override fun start(sessionId: String) {
-        // Create a fresh scope for this session
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        // Create a fresh scope with exception handler to prevent crashes
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
 
         this.sessionId = sessionId
 

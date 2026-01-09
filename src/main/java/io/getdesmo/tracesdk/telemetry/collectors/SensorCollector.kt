@@ -42,44 +42,52 @@ internal class SensorCollector(
 
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            when (event.sensor.type) {
-                Sensor.TYPE_ACCELEROMETER -> {
-                    accelValues[0] = event.values[0].toDouble()
-                    accelValues[1] = event.values[1].toDouble()
-                    accelValues[2] = event.values[2].toDouble()
-                    hasAccel = true
-                    emitSample()
+            // Wrapped in try/catch to guarantee SDK never crashes the host app
+            try {
+                when (event.sensor.type) {
+                    Sensor.TYPE_ACCELEROMETER -> {
+                        accelValues[0] = event.values[0].toDouble()
+                        accelValues[1] = event.values[1].toDouble()
+                        accelValues[2] = event.values[2].toDouble()
+                        hasAccel = true
+                        emitSample()
+                    }
+                    Sensor.TYPE_GYROSCOPE -> {
+                        gyroValues[0] = event.values[0].toDouble()
+                        gyroValues[1] = event.values[1].toDouble()
+                        gyroValues[2] = event.values[2].toDouble()
+                        hasGyro = true
+                        emitSample()
+                    }
+                    Sensor.TYPE_GRAVITY -> {
+                        gravityValues[0] = event.values[0].toDouble()
+                        gravityValues[1] = event.values[1].toDouble()
+                        gravityValues[2] = event.values[2].toDouble()
+                        hasGravity = true
+                        emitSample()
+                    }
+                    Sensor.TYPE_ROTATION_VECTOR -> {
+                        // Convert rotation vector to quaternion [x, y, z, w]
+                        val q = FloatArray(4)
+                        SensorManager.getQuaternionFromVector(q, event.values)
+                        attitudeValues[0] = q[1].toDouble() // x
+                        attitudeValues[1] = q[2].toDouble() // y
+                        attitudeValues[2] = q[3].toDouble() // z
+                        attitudeValues[3] = q[0].toDouble() // w
+                        hasAttitude = true
+                        emitSample()
+                    }
+                    Sensor.TYPE_PRESSURE -> {
+                        latestBarometer = BarometerPayload(
+                            pressureHpa = event.values[0].toDouble(),
+                            relativeAltitudeM = null // Android doesn't provide relative altitude
+                        )
+                    }
                 }
-                Sensor.TYPE_GYROSCOPE -> {
-                    gyroValues[0] = event.values[0].toDouble()
-                    gyroValues[1] = event.values[1].toDouble()
-                    gyroValues[2] = event.values[2].toDouble()
-                    hasGyro = true
-                    emitSample()
-                }
-                Sensor.TYPE_GRAVITY -> {
-                    gravityValues[0] = event.values[0].toDouble()
-                    gravityValues[1] = event.values[1].toDouble()
-                    gravityValues[2] = event.values[2].toDouble()
-                    hasGravity = true
-                    emitSample()
-                }
-                Sensor.TYPE_ROTATION_VECTOR -> {
-                    // Convert rotation vector to quaternion [x, y, z, w]
-                    val q = FloatArray(4)
-                    SensorManager.getQuaternionFromVector(q, event.values)
-                    attitudeValues[0] = q[1].toDouble() // x
-                    attitudeValues[1] = q[2].toDouble() // y
-                    attitudeValues[2] = q[3].toDouble() // z
-                    attitudeValues[3] = q[0].toDouble() // w
-                    hasAttitude = true
-                    emitSample()
-                }
-                Sensor.TYPE_PRESSURE -> {
-                    latestBarometer = BarometerPayload(
-                        pressureHpa = event.values[0].toDouble(),
-                        relativeAltitudeM = null // Android doesn't provide relative altitude
-                    )
+            } catch (t: Throwable) {
+                // Log but never propagate - SDK must not crash host app
+                if (loggingEnabled) {
+                    Log.e(TAG, "Sensor callback error: $t")
                 }
             }
         }
