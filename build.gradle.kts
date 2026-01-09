@@ -1,6 +1,5 @@
 plugins {
-    // Versions are specified in settings.gradle.kts for standalone builds,
-    // or inherited from parent classpath when used as a submodule
+    // Versions in settings.gradle.kts for standalone, parent classpath for submodule
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -20,7 +19,7 @@ android {
         consumerProguardFiles("consumer-rules.pro")
 
         // SDK version available at runtime via BuildConfig.SDK_VERSION
-        buildConfigField("String", "SDK_VERSION", "\"0.2.0\"")
+        buildConfigField("String", "SDK_VERSION", "\"1.0.0\"")
     }
 
     buildFeatures {
@@ -31,8 +30,8 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
             )
         }
     }
@@ -42,9 +41,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
 }
 
 // ktlint configuration
@@ -52,11 +49,9 @@ ktlint {
     version.set("1.1.1")
     android.set(true)
     outputToConsole.set(true)
-    ignoreFailures.set(false)  // Fail build on lint errors
-    
-    filter {
-        exclude("**/generated/**")
-    }
+    ignoreFailures.set(false) // Fail build on lint errors
+
+    filter { exclude("**/generated/**") }
 }
 
 // --- Maven Central publishing + signing (disabled for now) -------------------
@@ -75,7 +70,8 @@ ktlint {
 //
 //                 pom {
 //                     name.set("Desmo Android SDK")
-//                     description.set("The Official Android SDK for Desmo, the delivery intelligence platform.")
+//                     description.set("The Official Android SDK for Desmo, the delivery
+// intelligence platform.")
 //                     url.set("https://getdesmo.io")
 //
 //                     licenses {
@@ -95,7 +91,8 @@ ktlint {
 //
 //                     scm {
 //                         connection.set("scm:git:git://github.com/getdesmo/desmo-android-sdk.git")
-//                         developerConnection.set("scm:git:ssh://github.com/getdesmo/desmo-android-sdk.git")
+//
+// developerConnection.set("scm:git:ssh://github.com/getdesmo/desmo-android-sdk.git")
 //                         url.set("https://github.com/getdesmo/desmo-android-sdk")
 //                     }
 //                 }
@@ -105,9 +102,12 @@ ktlint {
 //         repositories {
 //             maven {
 //                 name = "sonatype"
-//                 val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-//                 val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-//                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+//                 val releasesRepoUrl =
+// uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+//                 val snapshotsRepoUrl =
+// uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+//                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else
+// releasesRepoUrl
 //
 //                 credentials {
 //                     username = findProperty("ossrhUsername") as String?
@@ -168,5 +168,3 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
-
-
