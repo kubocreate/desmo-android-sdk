@@ -6,6 +6,7 @@ import android.location.LocationManager
 import android.util.Log
 import io.getdesmo.tracesdk.config.TelemetryConfig
 import io.getdesmo.tracesdk.network.HttpClient
+import io.getdesmo.tracesdk.telemetry.collectors.ActivityRecognitionCollector
 import io.getdesmo.tracesdk.telemetry.collectors.ContextCollector
 import io.getdesmo.tracesdk.telemetry.collectors.LocationCollector
 import io.getdesmo.tracesdk.telemetry.collectors.SensorCollector
@@ -19,12 +20,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Manages telemetry collection: coordinates sensors, location, context, buffering, and upload.
+ * Manages telemetry collection: coordinates sensors, location, context, activity, buffering, and upload.
  *
  * Implements [TelemetryProvider] interface.
  *
  * Architecture:
- * - [SensorCollector], [LocationCollector], [ContextCollector] → collect data
+ * - [SensorCollector], [LocationCollector], [ContextCollector], [ActivityRecognitionCollector] → collect data
  * - [TelemetryBuffer] → holds hot data in RAM
  * - [TelemetryQueue] → persists to SQLite, handles upload + retry
  */
@@ -58,7 +59,10 @@ internal class TelemetryManager(
         appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
 
     // Collectors - configured via TelemetryConfig
-    private val contextCollector = ContextCollector(appContext, loggingEnabled)
+    private val activityCollector = ActivityRecognitionCollector(appContext, loggingEnabled)
+    private val contextCollector = ContextCollector(appContext, loggingEnabled).apply {
+        setActivityCollector(activityCollector)
+    }
     private val locationCollector = LocationCollector(
         locationManager = locationManager,
         locationUpdateMs = telemetryConfig.locationUpdateMs,
@@ -93,6 +97,7 @@ internal class TelemetryManager(
         // Start collectors
         sensorCollector.start()
         locationCollector.start()
+        activityCollector.start()
 
         // Start background loops
         startUploadLoop()
@@ -120,6 +125,7 @@ internal class TelemetryManager(
         // Stop collectors
         sensorCollector.stop()
         locationCollector.stop()
+        activityCollector.stop()
     }
 
     override suspend fun flush() {

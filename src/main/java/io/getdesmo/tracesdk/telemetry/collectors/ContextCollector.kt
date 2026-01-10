@@ -11,10 +11,14 @@ import android.util.Log
 import io.getdesmo.tracesdk.telemetry.ContextPayload
 
 /**
- * Collects device context: battery level, charging state, screen on/off, network type.
+ * Collects device context: battery level, charging state, screen on/off, network type,
+ * and motion activity.
  *
  * Battery status is cached and refreshed every [BATTERY_REFRESH_INTERVAL_MS] to avoid
  * excessive system calls (registerReceiver is expensive).
+ *
+ * Motion activity is obtained from [ActivityRecognitionCollector] which must be started
+ * separately by the TelemetryManager.
  *
  * All methods are wrapped in try/catch to guarantee the SDK never crashes the host app.
  */
@@ -31,10 +35,20 @@ internal class ContextCollector(context: Context, private val loggingEnabled: Bo
     private val connectivityManager =
         appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
+    // Activity recognition collector (managed externally, injected here)
+    private var activityCollector: ActivityRecognitionCollector? = null
+
     // Cached battery state
     @Volatile private var cachedBatteryLevel: Double? = null
     @Volatile private var cachedCharging: Boolean = false
     @Volatile private var lastBatteryRefreshTime: Long = 0L
+
+    /**
+     * Set the activity recognition collector to use for motion activity data.
+     */
+    fun setActivityCollector(collector: ActivityRecognitionCollector) {
+        activityCollector = collector
+    }
 
     /**
      * Returns the current device context snapshot.
@@ -51,7 +65,7 @@ internal class ContextCollector(context: Context, private val loggingEnabled: Bo
                 batteryLevel = cachedBatteryLevel,
                 charging = cachedCharging,
                 network = getNetworkType(),
-                motionActivity = null
+                motionActivity = activityCollector?.latestActivity
             )
         } catch (t: Throwable) {
             // Log but never propagate - SDK must not crash host app

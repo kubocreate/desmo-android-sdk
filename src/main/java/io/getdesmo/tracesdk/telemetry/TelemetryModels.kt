@@ -72,15 +72,27 @@ data class TelemetrySample(
  * Sent with session start so backend knows what data to expect.
  *
  * Uses @SerialName to match backend field naming convention (hasXxx).
+ *
+ * Note: Android can provide rotation/attitude data even without a hardware gyroscope
+ * by fusing accelerometer + magnetometer data. The [gyroscope] field indicates
+ * hardware gyroscope presence, while [rotationVector] indicates whether rotation
+ * data (from any source) is available.
  */
 @Serializable
 data class SensorAvailability(
+    /** Hardware accelerometer sensor */
     @SerialName("hasAccelerometer") val accelerometer: Boolean = false,
+    /** Hardware gyroscope sensor (not fused rotation) */
     @SerialName("hasGyroscope") val gyroscope: Boolean = false,
+    /** Gravity sensor (often software-derived from accelerometer) */
     @SerialName("hasGravity") val gravity: Boolean = false,
+    /** Rotation vector sensor (may be fused from accel+mag without hardware gyro) */
     @SerialName("hasRotationVector") val rotationVector: Boolean = false,
+    /** Hardware barometer/pressure sensor */
     @SerialName("hasBarometer") val barometer: Boolean = false,
+    /** GPS/location available */
     @SerialName("hasGps") val gps: Boolean = false,
+    /** Hardware magnetometer/compass */
     @SerialName("hasMagnetometer") val magnetometer: Boolean = false
 )
 

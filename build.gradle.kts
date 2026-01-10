@@ -158,6 +158,9 @@ dependencies {
     // AndroidX core for permission helpers and system services
     implementation("androidx.core:core-ktx:1.13.1")
 
+    // Google Play Services for Activity Recognition
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
     // Room for persistent telemetry queue (offline support)
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
