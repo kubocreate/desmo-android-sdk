@@ -272,4 +272,24 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     DesmoResult.Failure(DesmoClientError.Http(RequestError.NetworkError(t)))
                 }
             }
+
+    /**
+     * Called when the app comes to foreground.
+     * Re-registers sensors that Android may have throttled in background.
+     *
+     * Typically called automatically via [Desmo.bindToProcessLifecycle].
+     */
+    fun onForeground() {
+        telemetry.onForeground()
+    }
+
+    /**
+     * Called when the app goes to background.
+     * Logs the transition; actual throttling is handled by Android.
+     *
+     * Typically called automatically via [Desmo.bindToProcessLifecycle].
+     */
+    fun onBackground() {
+        telemetry.onBackground()
+    }
 }

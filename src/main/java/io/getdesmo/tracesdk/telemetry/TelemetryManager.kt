@@ -145,6 +145,28 @@ internal class TelemetryManager(
         return locationCollector.getLastKnownPosition()
     }
 
+    override fun onForeground() {
+        // Only resume if we're actively recording a session
+        if (sessionId != null && scope != null) {
+            if (loggingEnabled) {
+                Log.d(TAG, "Resuming telemetry collection after foreground")
+            }
+            // Re-register sensor listeners that Android may have throttled
+            sensorCollector.resume()
+            // Restart activity recognition
+            activityCollector.start()
+        }
+    }
+
+    override fun onBackground() {
+        // Log the transition for debugging
+        if (loggingEnabled) {
+            Log.d(TAG, "App went to background, telemetry may be throttled by Android")
+        }
+        // Note: We don't stop collection here - Android will naturally throttle sensors
+        // If the host app wants continuous background collection, they should use a foreground service
+    }
+
     private fun onSensorSample(imu: ImuPayload, barometer: BarometerPayload?, magnetometer: MagnetometerPayload?) {
         val currentScope = scope ?: return // Don't add samples if not recording
 

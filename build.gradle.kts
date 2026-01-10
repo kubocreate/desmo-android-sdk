@@ -158,6 +158,10 @@ dependencies {
     // AndroidX core for permission helpers and system services
     implementation("androidx.core:core-ktx:1.13.1")
 
+    // AndroidX Lifecycle for lifecycle-aware components
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+
     // Google Play Services for Activity Recognition
     implementation("com.google.android.gms:play-services-location:21.0.1")
 

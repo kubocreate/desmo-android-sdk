@@ -28,5 +28,13 @@ class NoopTelemetryProvider : TelemetryProvider {
         // No position available in noop mode
         return null
     }
+
+    override fun onForeground() {
+        // No-op
+    }
+
+    override fun onBackground() {
+        // No-op
+    }
 }
 

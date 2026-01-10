@@ -2,9 +2,13 @@ package io.getdesmo.tracesdk
 
 import android.content.Context
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
 import io.getdesmo.tracesdk.internal.DesmoRequirements
+import io.getdesmo.tracesdk.lifecycle.DesmoLifecycleObserver
 import io.getdesmo.tracesdk.session.DesmoClient
 
 /**
@@ -26,6 +30,9 @@ object Desmo {
     @JvmStatic
     var client: DesmoClient? = null
         private set
+
+    private var lifecycleObserver: DesmoLifecycleObserver? = null
+    private var boundLifecycleOwner: LifecycleOwner? = null
 
     /**
      * Configure the SDK without telemetry (no Android Context).
@@ -100,5 +107,69 @@ object Desmo {
     @JvmStatic
     fun getMissingPermissions(context: Context): List<String> {
         return DesmoRequirements.getMissingPermissions(context)
+    }
+
+    /**
+     * Bind the SDK to the app's lifecycle for automatic sensor management.
+     *
+     * When the app goes to background, Android may throttle sensor updates.
+     * By binding to the lifecycle, the SDK will automatically re-register
+     * sensors when the app comes back to foreground.
+     *
+     * **Recommended:** Call this from your Application.onCreate():
+     * ```kotlin
+     * Desmo.setup(this, apiKey, environment)
+     * Desmo.bindToProcessLifecycle()
+     * ```
+     *
+     * For Activity-level binding (less common):
+     * ```kotlin
+     * Desmo.bindToLifecycle(this) // in Activity.onCreate()
+     * ```
+     */
+    @JvmStatic
+    fun bindToProcessLifecycle() {
+        bindToLifecycle(ProcessLifecycleOwner.get())
+    }
+
+    /**
+     * Bind the SDK to a specific LifecycleOwner (Activity, Fragment, etc.).
+     *
+     * @see bindToProcessLifecycle for application-level binding (recommended)
+     */
+    @JvmStatic
+    fun bindToLifecycle(lifecycleOwner: LifecycleOwner) {
+        val currentClient = client
+        if (currentClient == null) {
+            Log.w(TAG, "Cannot bind to lifecycle before setup() is called")
+            return
+        }
+
+        // Remove any existing observer
+        unbindFromLifecycle()
+
+        // Create and attach new observer
+        lifecycleObserver = DesmoLifecycleObserver(
+            onForeground = { currentClient.onForeground() },
+            onBackground = { currentClient.onBackground() },
+            loggingEnabled = true // TODO: get from config
+        )
+
+        boundLifecycleOwner = lifecycleOwner
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver!!)
+
+        Log.d(TAG, "Bound to lifecycle: ${lifecycleOwner::class.simpleName}")
+    }
+
+    /**
+     * Unbind from the currently bound lifecycle.
+     */
+    @JvmStatic
+    fun unbindFromLifecycle() {
+        lifecycleObserver?.let { observer ->
+            boundLifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+        lifecycleObserver = null
+        boundLifecycleOwner = null
     }
 }

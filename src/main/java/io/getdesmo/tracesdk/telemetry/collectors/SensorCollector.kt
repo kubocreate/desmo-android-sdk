@@ -169,6 +169,21 @@ internal class SensorCollector(
         }
     }
 
+    /**
+     * Resume sensor collection after app comes back to foreground.
+     * Android may throttle or stop sensor updates when app is in background,
+     * so we re-register all listeners to ensure data collection continues.
+     */
+    fun resume() {
+        // Unregister first to avoid duplicate registrations
+        sensorManager.unregisterListener(listener)
+        // Re-register all sensors
+        start()
+        if (loggingEnabled) {
+            Log.d(TAG, "Sensors resumed after foreground")
+        }
+    }
+
     /** Returns which sensors are available on this device. */
     fun getAvailability(): SensorAvailability {
         return SensorAvailability(
