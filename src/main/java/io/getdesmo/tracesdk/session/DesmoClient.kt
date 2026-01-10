@@ -10,7 +10,7 @@ import io.getdesmo.tracesdk.api.DesmoResult
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.models.Address
 import io.getdesmo.tracesdk.models.Device
-import io.getdesmo.tracesdk.models.Location
+import io.getdesmo.tracesdk.models.StartLocation
 import io.getdesmo.tracesdk.models.Session
 import io.getdesmo.tracesdk.models.SessionType
 import io.getdesmo.tracesdk.network.HttpClient
@@ -81,7 +81,7 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
             sessionType: SessionType,
             externalRiderId: String? = null,
             address: Address? = null,
-            startLocation: Location? = null
+            startLocation: StartLocation? = null
     ): DesmoResult<Session> =
             stateMutex.withLock {
                 try {
@@ -114,7 +114,7 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                                                         "Anchor position captured: ${position.lat}, ${position.lng}"
                                                 )
                                             }
-                                            Location(lat = position.lat, lng = position.lng)
+                                            StartLocation(lat = position.lat, lng = position.lng)
                                         } else {
                                             null
                                         }

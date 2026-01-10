@@ -2,7 +2,7 @@ package io.getdesmo.tracesdk.network
 
 import io.getdesmo.tracesdk.models.Address
 import io.getdesmo.tracesdk.models.Device
-import io.getdesmo.tracesdk.models.Location
+import io.getdesmo.tracesdk.models.StartLocation
 import io.getdesmo.tracesdk.models.SessionType
 import io.getdesmo.tracesdk.telemetry.SensorAvailability
 import kotlinx.serialization.Serializable
@@ -18,7 +18,7 @@ internal data class StartSessionRequest(
     val externalRiderId: String? = null,
     val address: Address? = null,
     val device: Device? = null,
-    val startLocation: Location? = null,
+    val startLocation: StartLocation? = null,
     val sensorAvailability: SensorAvailability? = null
 )
 
