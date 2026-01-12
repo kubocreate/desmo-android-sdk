@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Manages telemetry collection: coordinates sensors, location, context, activity, buffering, and upload.
@@ -94,6 +95,18 @@ internal class TelemetryManager(
 
         this.sessionId = sessionId
 
+        // CRITICAL: Clear any stale samples from previous sessions that may have
+        // crashed or been killed without calling stopSession(). This prevents old
+        // telemetry from leaking into the new session.
+        // We use runBlocking here because this must complete before we start
+        // collecting new samples - it's a brief operation (just clearing a list).
+        runBlocking {
+            buffer.clear()
+        }
+        if (loggingEnabled) {
+            Log.d(TAG, "Cleared stale buffer data before starting new session")
+        }
+
         // Start collectors
         sensorCollector.start()
         locationCollector.start()
@@ -104,6 +117,8 @@ internal class TelemetryManager(
         startRetryLoop()
 
         // Process any pending batches from previous sessions
+        // Note: These batches are persisted with their ORIGINAL session IDs,
+        // so they will be uploaded to their correct sessions, not the new one.
         scope?.launch {
             queue.processPendingBatches()
         }

@@ -42,4 +42,14 @@ internal class TelemetryBuffer(private val maxSize: Int = 10_000) {
     suspend fun isNotEmpty(): Boolean {
         return mutex.withLock { samples.isNotEmpty() }
     }
+
+    /**
+     * Clear all samples from the buffer without returning them.
+     *
+     * Used to discard stale samples from crashed/killed sessions when starting
+     * a new session. This prevents old telemetry from leaking into new sessions.
+     */
+    suspend fun clear() {
+        mutex.withLock { samples.clear() }
+    }
 }
