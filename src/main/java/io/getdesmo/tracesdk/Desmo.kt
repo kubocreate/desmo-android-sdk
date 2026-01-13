@@ -1,9 +1,15 @@
 package io.getdesmo.tracesdk
 
 import android.content.Context
+import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
-import io.getdesmo.tracesdk.core.DesmoClient
+import io.getdesmo.tracesdk.internal.DesmoRequirements
+import io.getdesmo.tracesdk.lifecycle.DesmoLifecycleObserver
+import io.getdesmo.tracesdk.session.DesmoClient
 
 /**
  * Main entry point for the Desmo Android SDK.
@@ -14,6 +20,8 @@ import io.getdesmo.tracesdk.core.DesmoClient
  */
 object Desmo {
 
+    private const val TAG = "DesmoSDK"
+
     /**
      * The shared Desmo client instance.
      *
@@ -22,6 +30,9 @@ object Desmo {
     @JvmStatic
     var client: DesmoClient? = null
         private set
+
+    private var lifecycleObserver: DesmoLifecycleObserver? = null
+    private var boundLifecycleOwner: LifecycleOwner? = null
 
     /**
      * Configure the SDK without telemetry (no Android Context).
@@ -52,8 +63,8 @@ object Desmo {
         environment: DesmoEnvironment
     ) {
         try {
-            if (context != null && !hasRequiredPermissions(context)) {
-                println("[DesmoSDK] WARNING: Required permissions are missing: ${getMissingPermissions(context)}")
+            if (context != null && !DesmoRequirements.hasRequiredPermissions(context)) {
+                Log.w(TAG, "Required permissions are missing: ${DesmoRequirements.getMissingPermissions(context)}")
             }
 
             val config = DesmoConfig(
@@ -63,25 +74,23 @@ object Desmo {
             client = DesmoClient(config, context)
 
             if (config.loggingEnabled) {
-                println("[DesmoSDK] Setup successful pointing to: ${environment.baseUrl}")
+                Log.d(TAG, "Setup successful pointing to: ${environment.baseUrl}")
             }
         } catch (t: Throwable) {
             // Mirror the iOS behavior of logging on failure.
-            println("[DesmoSDK] Setup failed: $t")
+            Log.e(TAG, "Setup failed: $t")
         }
     }
 
     /**
      * Returns the array of Android runtime permissions required by the SDK.
      *
-     * Currently: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION
+     * Currently: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, 
+     * and ACTIVITY_RECOGNITION (on API 29+).
      */
     @JvmStatic
     fun getRequiredPermissions(): Array<String> {
-        return arrayOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        )
+        return DesmoRequirements.getRequiredPermissions()
     }
 
     /**
@@ -89,7 +98,7 @@ object Desmo {
      */
     @JvmStatic
     fun hasRequiredPermissions(context: Context): Boolean {
-        return getMissingPermissions(context).isEmpty()
+        return DesmoRequirements.hasRequiredPermissions(context)
     }
 
     /**
@@ -97,14 +106,70 @@ object Desmo {
      */
     @JvmStatic
     fun getMissingPermissions(context: Context): List<String> {
-        val required = getRequiredPermissions()
-        return required.filter { permission ->
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                context,
-                permission
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        return DesmoRequirements.getMissingPermissions(context)
+    }
+
+    /**
+     * Bind the SDK to the app's lifecycle for automatic sensor management.
+     *
+     * When the app goes to background, Android may throttle sensor updates.
+     * By binding to the lifecycle, the SDK will automatically re-register
+     * sensors when the app comes back to foreground.
+     *
+     * **Recommended:** Call this from your Application.onCreate():
+     * ```kotlin
+     * Desmo.setup(this, apiKey, environment)
+     * Desmo.bindToProcessLifecycle()
+     * ```
+     *
+     * For Activity-level binding (less common):
+     * ```kotlin
+     * Desmo.bindToLifecycle(this) // in Activity.onCreate()
+     * ```
+     */
+    @JvmStatic
+    fun bindToProcessLifecycle() {
+        bindToLifecycle(ProcessLifecycleOwner.get())
+    }
+
+    /**
+     * Bind the SDK to a specific LifecycleOwner (Activity, Fragment, etc.).
+     *
+     * @see bindToProcessLifecycle for application-level binding (recommended)
+     */
+    @JvmStatic
+    fun bindToLifecycle(lifecycleOwner: LifecycleOwner) {
+        val currentClient = client
+        if (currentClient == null) {
+            Log.w(TAG, "Cannot bind to lifecycle before setup() is called")
+            return
         }
+
+        // Remove any existing observer
+        unbindFromLifecycle()
+
+        // Create and attach new observer
+        lifecycleObserver = DesmoLifecycleObserver(
+            onForeground = { currentClient.onForeground() },
+            onBackground = { currentClient.onBackground() },
+            loggingEnabled = true // TODO: get from config
+        )
+
+        boundLifecycleOwner = lifecycleOwner
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver!!)
+
+        Log.d(TAG, "Bound to lifecycle: ${lifecycleOwner::class.simpleName}")
+    }
+
+    /**
+     * Unbind from the currently bound lifecycle.
+     */
+    @JvmStatic
+    fun unbindFromLifecycle() {
+        lifecycleObserver?.let { observer ->
+            boundLifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+        lifecycleObserver = null
+        boundLifecycleOwner = null
     }
 }
-
-

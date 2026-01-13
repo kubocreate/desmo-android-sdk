@@ -1,4 +1,4 @@
-package io.getdesmo.tracesdk.core
+package io.getdesmo.tracesdk.telemetry
 
 /**
  * Telemetry provider that does nothing.
@@ -28,6 +28,13 @@ class NoopTelemetryProvider : TelemetryProvider {
         // No position available in noop mode
         return null
     }
-}
 
+    override fun onForeground() {
+        // No-op
+    }
+
+    override fun onBackground() {
+        // No-op
+    }
+}
 

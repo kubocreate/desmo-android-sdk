@@ -1,9 +1,10 @@
 plugins {
-    id("com.android.library") version "8.2.0"
-    id("org.jetbrains.kotlin.android") version "1.9.20"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
-    // id("maven-publish") // Not needed for JitPack / normal AAR builds
-    // id("signing")       // Only needed when publishing to Maven Central
+    // Versions in settings.gradle.kts for standalone, parent classpath for submodule
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
@@ -16,14 +17,21 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        // SDK version available at runtime via BuildConfig.SDK_VERSION
+        buildConfigField("String", "SDK_VERSION", "\"1.0.0\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
             )
         }
     }
@@ -33,9 +41,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
+}
+
+// ktlint configuration
+ktlint {
+    version.set("1.1.1")
+    android.set(true)
+    outputToConsole.set(true)
+    ignoreFailures.set(false) // Fail build on lint errors
+
+    filter { exclude("**/generated/**") }
 }
 
 // --- Maven Central publishing + signing (disabled for now) -------------------
@@ -54,7 +70,8 @@ android {
 //
 //                 pom {
 //                     name.set("Desmo Android SDK")
-//                     description.set("The Official Android SDK for Desmo, the delivery intelligence platform.")
+//                     description.set("The Official Android SDK for Desmo, the delivery
+// intelligence platform.")
 //                     url.set("https://getdesmo.io")
 //
 //                     licenses {
@@ -74,7 +91,8 @@ android {
 //
 //                     scm {
 //                         connection.set("scm:git:git://github.com/getdesmo/desmo-android-sdk.git")
-//                         developerConnection.set("scm:git:ssh://github.com/getdesmo/desmo-android-sdk.git")
+//
+// developerConnection.set("scm:git:ssh://github.com/getdesmo/desmo-android-sdk.git")
 //                         url.set("https://github.com/getdesmo/desmo-android-sdk")
 //                     }
 //                 }
@@ -84,9 +102,12 @@ android {
 //         repositories {
 //             maven {
 //                 name = "sonatype"
-//                 val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-//                 val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-//                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+//                 val releasesRepoUrl =
+// uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+//                 val snapshotsRepoUrl =
+// uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+//                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else
+// releasesRepoUrl
 //
 //                 credentials {
 //                     username = findProperty("ossrhUsername") as String?
@@ -137,9 +158,20 @@ dependencies {
     // AndroidX core for permission helpers and system services
     implementation("androidx.core:core-ktx:1.13.1")
 
+    // AndroidX Lifecycle for lifecycle-aware components
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+
+    // Google Play Services for Activity Recognition
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    // Room for persistent telemetry queue (offline support)
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
-
-

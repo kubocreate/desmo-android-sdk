@@ -6,6 +6,8 @@
 .idea
 *.iml
 .DS_Store
+.vscode/
+cspell.json
 
 # Local configuration (secrets)
 local.properties

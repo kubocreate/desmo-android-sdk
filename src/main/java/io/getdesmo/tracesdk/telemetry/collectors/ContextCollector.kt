@@ -1,0 +1,133 @@
+package io.getdesmo.tracesdk.telemetry.collectors
+
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.os.PowerManager
+import android.util.Log
+import io.getdesmo.tracesdk.telemetry.ContextPayload
+
+/**
+ * Collects device context: battery level, charging state, screen on/off, network type,
+ * and motion activity.
+ *
+ * Battery status is cached and refreshed every [BATTERY_REFRESH_INTERVAL_MS] to avoid
+ * excessive system calls (registerReceiver is expensive).
+ *
+ * Motion activity is obtained from [ActivityRecognitionCollector] which must be started
+ * separately by the TelemetryManager.
+ *
+ * All methods are wrapped in try/catch to guarantee the SDK never crashes the host app.
+ */
+internal class ContextCollector(context: Context, private val loggingEnabled: Boolean = false) {
+
+    private companion object {
+        private const val TAG = "DesmoSDK"
+        // Battery changes slowly - refresh every 30 seconds is plenty
+        private const val BATTERY_REFRESH_INTERVAL_MS = 30_000L
+    }
+
+    private val appContext = context.applicationContext
+    private val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    private val connectivityManager =
+        appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+
+    // Activity recognition collector (managed externally, injected here)
+    private var activityCollector: ActivityRecognitionCollector? = null
+
+    // Cached battery state
+    @Volatile private var cachedBatteryLevel: Double? = null
+    @Volatile private var cachedCharging: Boolean = false
+    @Volatile private var lastBatteryRefreshTime: Long = 0L
+
+    /**
+     * Set the activity recognition collector to use for motion activity data.
+     */
+    fun setActivityCollector(collector: ActivityRecognitionCollector) {
+        activityCollector = collector
+    }
+
+    /**
+     * Returns the current device context snapshot.
+     * Returns safe defaults if any system call fails.
+     */
+    fun getContext(): ContextPayload {
+        return try {
+            // Refresh battery cache if stale
+            refreshBatteryCacheIfNeeded()
+
+            ContextPayload(
+                screenOn = powerManager?.isInteractive ?: true,
+                appForeground = true, // Approximation: SDK runs while app is active
+                batteryLevel = cachedBatteryLevel,
+                charging = cachedCharging,
+                network = getNetworkType(),
+                motionActivity = activityCollector?.latestActivity
+            )
+        } catch (t: Throwable) {
+            // Log but never propagate - SDK must not crash host app
+            if (loggingEnabled) {
+                Log.e(TAG, "Context collection error: $t")
+            }
+            // Return safe defaults
+            ContextPayload(
+                screenOn = true,
+                appForeground = true,
+                batteryLevel = null,
+                charging = false,
+                network = "unknown",
+                motionActivity = null
+            )
+        }
+    }
+
+    /**
+     * Refresh battery cache only if [BATTERY_REFRESH_INTERVAL_MS] has passed.
+     */
+    private fun refreshBatteryCacheIfNeeded() {
+        val now = System.currentTimeMillis()
+        if (now - lastBatteryRefreshTime < BATTERY_REFRESH_INTERVAL_MS) {
+            return // Cache is still fresh
+        }
+
+        // Refresh from system
+        val batteryIntent = appContext.registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        )
+
+        cachedBatteryLevel = getBatteryLevel(batteryIntent)
+        cachedCharging = isCharging(batteryIntent)
+        lastBatteryRefreshTime = now
+    }
+
+    private fun getBatteryLevel(batteryIntent: Intent?): Double? {
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) {
+            level.toDouble() / scale.toDouble()
+        } else {
+            null
+        }
+    }
+
+    private fun isCharging(batteryIntent: Intent?): Boolean {
+        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+    }
+
+    private fun getNetworkType(): String {
+        val cm = connectivityManager ?: return "unknown"
+        val networkCaps = cm.getNetworkCapabilities(cm.activeNetwork)
+        return when {
+            networkCaps == null -> "none"
+            networkCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            networkCaps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            else -> "unknown"
+        }
+    }
+}
