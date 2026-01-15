@@ -73,9 +73,10 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     /**
      * Configure the foreground service for background operation.
      *
-     * Call this once after [Desmo.setup] and before starting any sessions.
-     * If not configured, sessions will work normally in foreground but may
-     * be throttled or killed by Android when the app goes to background.
+     * This is **optional**. If not called, the SDK will automatically use
+     * a default notification with your app's launcher icon.
+     *
+     * Call this to customize the notification appearance with your branding.
      *
      * @param config Foreground service configuration (Simple or Custom)
      */
@@ -88,6 +89,25 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
             }
             Log.d(TAG, "Foreground service configured with $configType config")
         }
+    }
+
+    /**
+     * Get the effective foreground service config, creating a default if needed.
+     * Uses the app's launcher icon with generic text.
+     */
+    private fun getEffectiveForegroundServiceConfig(context: Context): ForegroundServiceConfig {
+        // If custom config provided, use it
+        foregroundServiceConfig?.let { return it }
+
+        // Otherwise, create default config using app's launcher icon
+        val appInfo = context.applicationInfo
+        return ForegroundServiceConfig.Simple(
+            title = "Recording Active",
+            text = "Tracking delivery in progress",
+            smallIconResId = appInfo.icon,
+            channelId = "desmo_tracking",
+            channelName = "Delivery Tracking"
+        )
     }
 
     /**
@@ -192,14 +212,15 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     // Start collecting telemetry
                     telemetry.start(session.sessionId)
 
-                    // Start foreground service if configured (keeps app alive in background)
-                    val ctx = appContext
-                    val fgConfig = foregroundServiceConfig
-                    if (ctx != null && fgConfig != null) {
+                    // Start foreground service (keeps app alive in background)
+                    // Uses custom config if provided, otherwise uses default with app's icon
+                    appContext?.let { ctx ->
+                        val fgConfig = getEffectiveForegroundServiceConfig(ctx)
                         DesmoForegroundService.start(ctx, fgConfig)
                         foregroundServiceStarted = true
                         if (config.loggingEnabled) {
-                            Log.d(TAG, "Foreground service started")
+                            val configType = if (foregroundServiceConfig != null) "custom" else "default"
+                            Log.d(TAG, "Foreground service started with $configType config")
                         }
                     }
 

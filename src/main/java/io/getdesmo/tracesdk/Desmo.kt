@@ -175,15 +175,15 @@ object Desmo {
     }
 
     // ========================================================================
-    // FOREGROUND SERVICE CONFIGURATION
+    // FOREGROUND SERVICE CONFIGURATION (OPTIONAL)
     // ========================================================================
 
     /**
-     * Configure foreground service with simple settings (SDK builds the notification).
+     * Customize the foreground service notification with your branding.
      *
-     * Call this once after [setup] and before starting any sessions.
-     * The foreground service keeps telemetry collection alive when the app
-     * is in background.
+     * **This is optional.** By default, the SDK automatically starts a foreground
+     * service using your app's launcher icon with generic text. Call this method
+     * only if you want to customize the notification appearance.
      *
      * Example:
      * ```kotlin
@@ -225,9 +225,11 @@ object Desmo {
     }
 
     /**
-     * Configure foreground service with a custom notification (full control).
+     * Customize the foreground service with your own notification (full control).
      *
-     * Use this for full control over notification appearance, including:
+     * **This is optional.** By default, the SDK automatically creates a notification
+     * using your app's launcher icon. Use this method for full control over
+     * notification appearance, including:
      * - Custom colors and branding
      * - Action buttons
      * - Large icons
