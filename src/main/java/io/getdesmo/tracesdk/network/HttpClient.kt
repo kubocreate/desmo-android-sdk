@@ -2,7 +2,9 @@ package io.getdesmo.tracesdk.network
 
 import android.util.Log
 import io.getdesmo.tracesdk.config.DesmoConfig
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,6 +21,7 @@ class HttpClient(private val config: DesmoConfig) {
     companion object {
         private const val TAG = "DesmoSDK"
         private const val HEADER_API_KEY = "Desmo-Key"
+        private const val HEADER_CONTENT_ENCODING = "Content-Encoding"
         private const val TIMEOUT_SECONDS = 30L
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
@@ -46,18 +49,30 @@ class HttpClient(private val config: DesmoConfig) {
     /**
      * Perform a POST with a JSON body.
      *
+     * The body is GZIP compressed to reduce network bandwidth (~75% reduction).
+     *
      * @param path Path component, e.g. "/v1/sessions/start".
      * @param jsonBody JSON-encoded request body.
      */
     suspend fun post(path: String, jsonBody: String): ByteArray {
         val fullUrl = buildUrl(path)
-        val requestBody = jsonBody.toRequestBody(JSON_MEDIA_TYPE)
+        
+        // GZIP compress the JSON body for ~75% bandwidth reduction
+        val compressedBody = gzipCompress(jsonBody)
+        val requestBody = compressedBody.toRequestBody(JSON_MEDIA_TYPE)
 
-        val request = Request.Builder().url(fullUrl).post(requestBody).build()
+        val request = Request.Builder()
+            .url(fullUrl)
+            .post(requestBody)
+            .addHeader(HEADER_CONTENT_ENCODING, "gzip")
+            .build()
 
         if (config.loggingEnabled) {
+            val originalSize = jsonBody.toByteArray().size
+            val compressedSize = compressedBody.size
+            val savings = ((1.0 - compressedSize.toDouble() / originalSize) * 100).toInt()
             Log.d(TAG, "Request: POST $fullUrl")
-            Log.d(TAG, "Request Body: $jsonBody")
+            Log.d(TAG, "Request Body: $originalSize bytes → $compressedSize bytes (${savings}% saved)")
         }
 
         return perform(request)
@@ -84,6 +99,15 @@ class HttpClient(private val config: DesmoConfig) {
     private fun buildUrl(path: String): String {
         val baseUrl = config.environment.baseUrl.trimEnd('/')
         return "$baseUrl$path"
+    }
+
+    /** GZIP compress a string to bytes. */
+    private fun gzipCompress(data: String): ByteArray {
+        val byteStream = ByteArrayOutputStream()
+        GZIPOutputStream(byteStream).use { gzip ->
+            gzip.write(data.toByteArray(Charsets.UTF_8))
+        }
+        return byteStream.toByteArray()
     }
 
     /** Execute the request and return raw bytes. */
