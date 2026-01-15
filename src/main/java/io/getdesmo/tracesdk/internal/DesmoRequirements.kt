@@ -14,11 +14,12 @@ import androidx.core.content.ContextCompat
  */
 data class DesmoRequirementsStatus(
     val hasLocationPermission: Boolean,
-    val hasMotionPermission: Boolean
+    val hasMotionPermission: Boolean,
+    val hasNotificationPermission: Boolean
 ) {
     /** True if all required permissions are granted. */
     val allGranted: Boolean
-        get() = hasLocationPermission && hasMotionPermission
+        get() = hasLocationPermission && hasMotionPermission && hasNotificationPermission
 }
 
 /**
@@ -68,8 +69,58 @@ object DesmoRequirements {
     fun currentStatus(context: Context): DesmoRequirementsStatus {
         return DesmoRequirementsStatus(
             hasLocationPermission = hasLocationPermission(context),
-            hasMotionPermission = hasMotionPermission(context)
+            hasMotionPermission = hasMotionPermission(context),
+            hasNotificationPermission = canShowNotifications(context)
         )
+    }
+
+    /**
+     * Returns permissions needed for foreground service functionality.
+     * On Android 13+, this includes POST_NOTIFICATIONS.
+     */
+    fun getForegroundServicePermissions(): Array<String> {
+        val permissions = mutableListOf<String>()
+
+        // Android 13+ requires runtime permission for notifications
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        return permissions.toTypedArray()
+    }
+
+    /**
+     * Checks if the app can show foreground service notifications.
+     * Always returns true on Android 12 and below (no runtime permission needed).
+     */
+    fun canShowNotifications(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // No runtime permission needed before Android 13
+        }
+    }
+
+    /**
+     * Checks if background location permission is granted.
+     * This is separate from foreground location and requires Play Store declaration.
+     *
+     * Note: Background location is NOT required for foreground service operation.
+     * The foreground service keeps your app in "foreground" state even when minimized.
+     */
+    fun hasBackgroundLocationPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            // Before Android 10, foreground permission covers background too
+            hasLocationPermission(context)
+        }
     }
 
     private fun hasLocationPermission(context: Context): Boolean {

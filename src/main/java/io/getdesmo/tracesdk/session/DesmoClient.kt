@@ -8,6 +8,8 @@ import io.getdesmo.tracesdk.BuildConfig
 import io.getdesmo.tracesdk.api.DesmoClientError
 import io.getdesmo.tracesdk.api.DesmoResult
 import io.getdesmo.tracesdk.config.DesmoConfig
+import io.getdesmo.tracesdk.config.ForegroundServiceConfig
+import io.getdesmo.tracesdk.service.DesmoForegroundService
 import io.getdesmo.tracesdk.models.Address
 import io.getdesmo.tracesdk.models.Device
 import io.getdesmo.tracesdk.models.StartLocation
@@ -52,6 +54,10 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     private var state: SessionState = SessionState.IDLE
     private var currentSessionId: String? = null
 
+    // Foreground service configuration (optional - only used for background operation)
+    private var foregroundServiceConfig: ForegroundServiceConfig? = null
+    private var foregroundServiceStarted: Boolean = false
+
     // Single shared HttpClient instance for both session calls and telemetry
     private val httpClient: HttpClient = HttpClient(config)
 
@@ -63,6 +69,26 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
             }
 
     private val stateMutex = Mutex()
+
+    /**
+     * Configure the foreground service for background operation.
+     *
+     * Call this once after [Desmo.setup] and before starting any sessions.
+     * If not configured, sessions will work normally in foreground but may
+     * be throttled or killed by Android when the app goes to background.
+     *
+     * @param config Foreground service configuration (Simple or Custom)
+     */
+    fun configureForegroundService(config: ForegroundServiceConfig) {
+        foregroundServiceConfig = config
+        if (this.config.loggingEnabled) {
+            val configType = when (config) {
+                is ForegroundServiceConfig.Simple -> "Simple"
+                is ForegroundServiceConfig.Custom -> "Custom"
+            }
+            Log.d(TAG, "Foreground service configured with $configType config")
+        }
+    }
 
     /**
      * Start a Desmo session for a specific delivery.
@@ -166,6 +192,17 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     // Start collecting telemetry
                     telemetry.start(session.sessionId)
 
+                    // Start foreground service if configured (keeps app alive in background)
+                    val ctx = appContext
+                    val fgConfig = foregroundServiceConfig
+                    if (ctx != null && fgConfig != null) {
+                        DesmoForegroundService.start(ctx, fgConfig)
+                        foregroundServiceStarted = true
+                        if (config.loggingEnabled) {
+                            Log.d(TAG, "Foreground service started")
+                        }
+                    }
+
                     // 4. Transition state: starting -> recording
                     currentSessionId = session.sessionId
                     state = SessionState.RECORDING
@@ -240,6 +277,17 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                     telemetry.flush()
                     telemetry.stop()
 
+                    // Stop foreground service if it was started
+                    if (foregroundServiceStarted) {
+                        appContext?.let { ctx ->
+                            DesmoForegroundService.stop(ctx)
+                            if (config.loggingEnabled) {
+                                Log.d(TAG, "Foreground service stopped")
+                            }
+                        }
+                        foregroundServiceStarted = false
+                    }
+
                     val requestBody = StopSessionRequest(sessionId = sessionId)
 
                     // 3. Perform network request
@@ -291,5 +339,5 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
      */
     fun onBackground() {
         telemetry.onBackground()
-    }
+            }
 }
