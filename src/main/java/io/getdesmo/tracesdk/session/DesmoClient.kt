@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import io.getdesmo.tracesdk.BuildConfig
+import io.getdesmo.tracesdk.R
 import io.getdesmo.tracesdk.api.DesmoClientError
 import io.getdesmo.tracesdk.api.DesmoResult
 import io.getdesmo.tracesdk.config.DesmoConfig
@@ -73,8 +74,8 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
     /**
      * Configure the foreground service for background operation.
      *
-     * This is **optional**. If not called, the SDK will automatically use
-     * a default notification with your app's launcher icon.
+     * This is **optional**. If not called, the SDK will use a default
+     * notification with a generic location pin icon.
      *
      * Call this to customize the notification appearance with your branding.
      *
@@ -93,18 +94,17 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
 
     /**
      * Get the effective foreground service config, creating a default if needed.
-     * Uses the app's launcher icon with generic text.
+     * Uses the SDK's built-in notification icon (monochrome, Android-compliant).
      */
     private fun getEffectiveForegroundServiceConfig(context: Context): ForegroundServiceConfig {
         // If custom config provided, use it
         foregroundServiceConfig?.let { return it }
 
-        // Otherwise, create default config using app's launcher icon
-        val appInfo = context.applicationInfo
+        // Use SDK's built-in monochrome icon (NOT app's launcher icon - adaptive icons crash!)
         return ForegroundServiceConfig.Simple(
             title = "Recording Active",
             text = "Tracking delivery in progress",
-            smallIconResId = appInfo.icon,
+            smallIconResId = R.drawable.ic_desmo_notification,
             channelId = "desmo_tracking",
             channelName = "Delivery Tracking"
         )
