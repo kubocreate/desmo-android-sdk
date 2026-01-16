@@ -12,6 +12,19 @@
     <!-- High frequency sensors for IMU data (Android 12+) -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
-    <application />
+    <!-- Foreground service permissions for background operation -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ requires declaring foreground service type -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Android 13+ requires permission to show notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!-- Foreground service for continuous telemetry collection in background -->
+        <service
+            android:name=".service.DesmoForegroundService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
+    </application>
 
 </manifest>

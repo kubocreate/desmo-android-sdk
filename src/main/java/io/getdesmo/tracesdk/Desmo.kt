@@ -1,12 +1,13 @@
 package io.getdesmo.tracesdk
 
+import android.app.Notification
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import io.getdesmo.tracesdk.config.DesmoConfig
 import io.getdesmo.tracesdk.config.DesmoEnvironment
+import io.getdesmo.tracesdk.config.ForegroundServiceConfig
 import io.getdesmo.tracesdk.internal.DesmoRequirements
 import io.getdesmo.tracesdk.lifecycle.DesmoLifecycleObserver
 import io.getdesmo.tracesdk.session.DesmoClient
@@ -171,5 +172,122 @@ object Desmo {
         }
         lifecycleObserver = null
         boundLifecycleOwner = null
+    }
+
+    // ========================================================================
+    // FOREGROUND SERVICE CONFIGURATION (OPTIONAL)
+    // ========================================================================
+
+    /**
+     * Customize the foreground service notification with your branding.
+     *
+     * **This is optional.** By default, the SDK automatically starts a foreground
+     * service using your app's launcher icon with generic text. Call this method
+     * only if you want to customize the notification appearance.
+     *
+     * Example:
+     * ```kotlin
+     * Desmo.setup(this, apiKey, environment)
+     * Desmo.configureForegroundService(
+     *     title = "QWQER Delivery",
+     *     text = "Recording your route...",
+     *     smallIconResId = R.drawable.ic_delivery
+     * )
+     * ```
+     *
+     * @param title Notification title (e.g., "QWQER Delivery")
+     * @param text Notification body text (e.g., "Recording your route...")
+     * @param smallIconResId Resource ID for the notification icon (from your app)
+     * @param channelId Optional notification channel ID (default: "desmo_tracking")
+     * @param channelName Optional channel name shown in settings (default: "Delivery Tracking")
+     * @param notificationId Optional notification ID (default: 1001)
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun configureForegroundService(
+        title: String,
+        text: String,
+        smallIconResId: Int,
+        channelId: String = "desmo_tracking",
+        channelName: String = "Delivery Tracking",
+        notificationId: Int = 1001
+    ) {
+        val config = ForegroundServiceConfig.Simple(
+            title = title,
+            text = text,
+            smallIconResId = smallIconResId,
+            channelId = channelId,
+            channelName = channelName,
+            notificationId = notificationId
+        )
+        client?.configureForegroundService(config)
+            ?: Log.w(TAG, "Cannot configure foreground service before setup()")
+    }
+
+    /**
+     * Customize the foreground service with your own notification (full control).
+     *
+     * **This is optional.** By default, the SDK automatically creates a notification
+     * using your app's launcher icon. Use this method for full control over
+     * notification appearance, including:
+     * - Custom colors and branding
+     * - Action buttons
+     * - Large icons
+     * - Custom content intents
+     *
+     * Example:
+     * ```kotlin
+     * val notification = NotificationCompat.Builder(this, "qwqer_channel")
+     *     .setContentTitle("QWQER Active")
+     *     .setContentText("3 stops remaining")
+     *     .setSmallIcon(R.drawable.qwqer_logo)
+     *     .setColor(0xFF00B140.toInt())
+     *     .addAction(R.drawable.ic_stop, "End Shift", stopIntent)
+     *     .build()
+     *
+     * Desmo.configureForegroundService(notification)
+     * ```
+     *
+     * **Important:** You must create the notification channel before starting
+     * a session (Android 8+).
+     *
+     * @param notification Your custom notification object
+     * @param notificationId Optional notification ID (default: 1001)
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun configureForegroundService(
+        notification: Notification,
+        notificationId: Int = 1001
+    ) {
+        val config = ForegroundServiceConfig.Custom(
+            notification = notification,
+            notificationId = notificationId
+        )
+        client?.configureForegroundService(config)
+            ?: Log.w(TAG, "Cannot configure foreground service before setup()")
+    }
+
+    /**
+     * Returns permissions needed for foreground service functionality.
+     *
+     * On Android 13+, this includes POST_NOTIFICATIONS.
+     * Request these permissions before starting sessions if you want
+     * background operation.
+     */
+    @JvmStatic
+    fun getForegroundServicePermissions(): Array<String> {
+        return DesmoRequirements.getForegroundServicePermissions()
+    }
+
+    /**
+     * Checks if the app can show foreground service notifications.
+     *
+     * Always returns true on Android 12 and below.
+     * On Android 13+, returns true if POST_NOTIFICATIONS is granted.
+     */
+    @JvmStatic
+    fun canShowNotifications(context: Context): Boolean {
+        return DesmoRequirements.canShowNotifications(context)
     }
 }
