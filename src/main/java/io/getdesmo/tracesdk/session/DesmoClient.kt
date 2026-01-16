@@ -183,7 +183,7 @@ class DesmoClient(private val config: DesmoConfig, private val appContext: Conte
                             Device(
                                     platform = "android",
                                     sdkVersion = SDK_VERSION,
-                                    deviceModel = Build.MODEL,
+                                    model = Build.MODEL,
                                     osVersion = Build.VERSION.RELEASE
                                                     ?: "SDK_${Build.VERSION.SDK_INT}",
                                     appVersion = resolveAppVersion()
