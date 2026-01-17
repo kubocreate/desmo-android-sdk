@@ -19,7 +19,7 @@ android {
         consumerProguardFiles("consumer-rules.pro")
 
         // SDK version available at runtime via BuildConfig.SDK_VERSION
-        buildConfigField("String", "SDK_VERSION", "\"1.0.0\"")
+        buildConfigField("String", "SDK_VERSION", "\"1.0.1\"")
     }
 
     buildFeatures {
