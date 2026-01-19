@@ -144,6 +144,7 @@ class DesmoForegroundService : Service() {
             .setOngoing(true) // Can't be swiped away
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lock screen
             .build()
     }
 }
