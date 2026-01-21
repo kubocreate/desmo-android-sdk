@@ -73,7 +73,7 @@ internal class TelemetryManager(
         sensorManager = sensorManager,
         sampleRateHz = telemetryConfig.sampleRateHz,
         loggingEnabled = loggingEnabled,
-        onSample = { imu, barometer, magnetometer -> onSensorSample(imu, barometer, magnetometer) }
+        onSample = { tsSeconds, imu, barometer, magnetometer -> onSensorSample(tsSeconds, imu, barometer, magnetometer) }
     )
 
     // Buffer + Queue
@@ -182,10 +182,11 @@ internal class TelemetryManager(
         // If the host app wants continuous background collection, they should use a foreground service
     }
 
-    private fun onSensorSample(imu: ImuPayload, barometer: BarometerPayload?, magnetometer: MagnetometerPayload?) {
+    private fun onSensorSample(tsSeconds: Double, imu: ImuPayload, barometer: BarometerPayload?, magnetometer: MagnetometerPayload?) {
         val currentScope = scope ?: return // Don't add samples if not recording
 
-        val tsSeconds = System.currentTimeMillis() / 1000.0
+        // tsSeconds is the accurate sensor timestamp converted to Unix time
+        // (computed from SensorEvent.timestamp + boot time offset)
         val sample = TelemetrySample(
             ts = tsSeconds,
             imu = imu,

@@ -4,6 +4,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.SystemClock
 import android.util.Log
 import io.getdesmo.tracesdk.telemetry.BarometerPayload
 import io.getdesmo.tracesdk.telemetry.ImuPayload
@@ -14,22 +15,27 @@ import io.getdesmo.tracesdk.telemetry.SensorAvailability
  * Collects IMU sensor data (accelerometer, gyroscope, gravity, rotation), barometer, and magnetometer.
  *
  * Samples are throttled to [sampleRateHz] to prevent excessive data collection. Calls [onSample] at
- * the configured rate.
+ * the configured rate with the accurate sensor timestamp.
  */
 internal class SensorCollector(
         private val sensorManager: SensorManager,
         private val sampleRateHz: Int,
         private val loggingEnabled: Boolean,
-        private val onSample: (ImuPayload, BarometerPayload?, MagnetometerPayload?) -> Unit
+        private val onSample: (Double, ImuPayload, BarometerPayload?, MagnetometerPayload?) -> Unit
 ) {
 
     private companion object {
         private const val TAG = "DesmoSDK"
     }
 
-    // Throttling: minimum ms between emitted samples
-    private val minIntervalMs = 1000L / sampleRateHz
-    @Volatile private var lastEmitTime = 0L
+    // Boot time offset for converting sensor timestamps to wall-clock time
+    // SensorEvent.timestamp is nanoseconds since boot (elapsedRealtimeNanos)
+    // We convert to Unix timestamp by adding this offset
+    private val bootTimeOffsetNanos: Long = System.currentTimeMillis() * 1_000_000L - SystemClock.elapsedRealtimeNanos()
+
+    // Throttling: minimum ns between emitted samples (using sensor timestamp for accuracy)
+    private val minIntervalNanos = 1_000_000_000L / sampleRateHz
+    @Volatile private var lastEmitTimeNanos = 0L
 
     // Latest barometer reading
     @Volatile
@@ -47,6 +53,9 @@ internal class SensorCollector(
     private val gravityValues = DoubleArray(3)
     private val attitudeValues = DoubleArray(4)
 
+    // Latest sensor timestamp (nanoseconds since boot)
+    @Volatile private var latestSensorTimestampNanos = 0L
+
     @Volatile private var hasAccel = false
     @Volatile private var hasGyro = false
     @Volatile private var hasGravity = false
@@ -57,27 +66,33 @@ internal class SensorCollector(
                 override fun onSensorChanged(event: SensorEvent) {
                     // Wrapped in try/catch to guarantee SDK never crashes the host app
                     try {
+                        // Capture sensor timestamp for accurate timing
+                        val eventTimestampNanos = event.timestamp
+                        
                         when (event.sensor.type) {
                             Sensor.TYPE_ACCELEROMETER -> {
                                 accelValues[0] = event.values[0].toDouble()
                                 accelValues[1] = event.values[1].toDouble()
                                 accelValues[2] = event.values[2].toDouble()
                                 hasAccel = true
-                                emitSample()
+                                latestSensorTimestampNanos = eventTimestampNanos
+                                emitSample(eventTimestampNanos)
                             }
                             Sensor.TYPE_GYROSCOPE -> {
                                 gyroValues[0] = event.values[0].toDouble()
                                 gyroValues[1] = event.values[1].toDouble()
                                 gyroValues[2] = event.values[2].toDouble()
                                 hasGyro = true
-                                emitSample()
+                                latestSensorTimestampNanos = eventTimestampNanos
+                                emitSample(eventTimestampNanos)
                             }
                             Sensor.TYPE_GRAVITY -> {
                                 gravityValues[0] = event.values[0].toDouble()
                                 gravityValues[1] = event.values[1].toDouble()
                                 gravityValues[2] = event.values[2].toDouble()
                                 hasGravity = true
-                                emitSample()
+                                latestSensorTimestampNanos = eventTimestampNanos
+                                emitSample(eventTimestampNanos)
                             }
                             Sensor.TYPE_ROTATION_VECTOR -> {
                                 // Convert rotation vector to quaternion [x, y, z, w]
@@ -88,7 +103,8 @@ internal class SensorCollector(
                                 attitudeValues[2] = q[3].toDouble() // z
                                 attitudeValues[3] = q[0].toDouble() // w
                                 hasAttitude = true
-                                emitSample()
+                                latestSensorTimestampNanos = eventTimestampNanos
+                                emitSample(eventTimestampNanos)
                             }
                             Sensor.TYPE_PRESSURE -> {
                                 latestBarometer =
@@ -121,13 +137,16 @@ internal class SensorCollector(
                 }
             }
 
-    private fun emitSample() {
+    private fun emitSample(eventTimestampNanos: Long) {
         // Throttle: only emit if enough time has passed since last sample
-        val now = System.currentTimeMillis()
-        if (now - lastEmitTime < minIntervalMs) {
+        // Using sensor timestamp for accurate throttling
+        if (eventTimestampNanos - lastEmitTimeNanos < minIntervalNanos) {
             return // Skip this sample - too soon
         }
-        lastEmitTime = now
+        lastEmitTimeNanos = eventTimestampNanos
+
+        // Convert sensor timestamp (nanoseconds since boot) to Unix timestamp (seconds)
+        val tsSeconds = (eventTimestampNanos + bootTimeOffsetNanos) / 1_000_000_000.0
 
         val imu =
                 ImuPayload(
@@ -136,7 +155,7 @@ internal class SensorCollector(
                         gravity = if (hasGravity) gravityValues.toList() else emptyList(),
                         attitude = if (hasAttitude) attitudeValues.toList() else emptyList()
                 )
-        onSample(imu, latestBarometer, latestMagnetometer)
+        onSample(tsSeconds, imu, latestBarometer, latestMagnetometer)
     }
 
     fun start() {
